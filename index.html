@@ -1,0 +1,320 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>明末·烽火 | FPS · 三营會戰</title>
+<meta name="description" content="基于网页的明末题材第一人称对战游戏。明军 / 农民军 / 清军三营对决，火铳与冷兵器混合战斗。" />
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><text y='52' font-size='52'>&#x1f525;</text></svg>" />
+<style>
+  :root{
+    --ink:#0c0a08;
+    --paper:#e9dfc4;
+    --red:#a81818;
+    --red2:#5c0d0d;
+    --gold:#c8a05a;
+    --mud:#3a2d1d;
+    --warm:#d4a85a;
+    --sky:#34506e;
+    --green:#3f7a4e;
+  }
+  *{box-sizing:border-box;margin:0;padding:0;}
+  html,body{width:100%;height:100%;overflow:hidden;background:#000;color:var(--paper);font-family:"Noto Serif SC","Songti SC","STSong","Microsoft YaHei",serif;}
+  #app{position:fixed;inset:0;}
+  canvas{display:block;width:100%!important;height:100%!important;}
+
+  /* ----------- 通用浮层 ----------- */
+  .overlay{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;z-index:50;}
+  .hidden{display:none !important;}
+
+  /* ----------- 主菜单 ----------- */
+  #menu{background:
+      radial-gradient(ellipse at 50% 30%,rgba(168,24,24,.35),transparent 60%),
+      radial-gradient(ellipse at 50% 80%,rgba(0,0,0,.9),#000 80%),
+      linear-gradient(180deg,#1a0f08 0%,#000 100%);
+    overflow:hidden;}
+  #menu::before{
+    content:""; position:absolute; inset:0; pointer-events:none;
+    background:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='120' height='120'><filter id='n'><feTurbulence baseFrequency='0.9' numOctaves='2'/><feColorMatrix values='0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0.06 0'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>");
+    mix-blend-mode:overlay;opacity:.8;
+  }
+  .menu-card{position:relative;text-align:center;max-width:760px;padding:36px 48px;}
+  .menu-title{
+    font-size:88px;font-weight:900;letter-spacing:.18em;
+    text-shadow:0 0 4px var(--red),0 0 18px rgba(168,24,24,.7),0 0 35px rgba(168,24,24,.35);
+    color:var(--paper);line-height:1;
+  }
+  .menu-sub{margin-top:8px;font-size:18px;letter-spacing:.45em;color:var(--gold);text-transform:uppercase;}
+  .menu-tagline{margin:24px auto 30px;font-size:15px;color:rgba(233,223,196,.65);max-width:520px;line-height:1.8;font-style:italic;}
+  .menu-quote{font-size:13px;letter-spacing:.2em;color:var(--gold);opacity:.85;margin-top:6px;}
+  .menu-quote::before,.menu-quote::after{content:"『 ";}
+  .menu-quote::after{content:" 』";}
+
+  /* ----- 选营 ----- */
+  #faction{background:linear-gradient(180deg,#000 0%,#1a0f08 100%);gap:0;padding:40px;}
+  #faction .wrap{width:100%;max-width:1200px;}
+  #faction h2{font-size:34px;letter-spacing:.4em;text-align:center;margin-bottom:8px;color:var(--paper);}
+  #faction .h-sub{text-align:center;color:var(--gold);letter-spacing:.3em;font-size:13px;margin-bottom:22px;}
+  .factions{display:grid;grid-template-columns:repeat(3,1fr);gap:22px;}
+  .faction{
+    position:relative;border:1px solid rgba(200,160,90,.4);border-radius:6px;
+    background:linear-gradient(180deg,rgba(40,30,15,.6),rgba(0,0,0,.85));
+    padding:24px 20px;cursor:pointer;transition:transform .2s,border-color .2s,box-shadow .2s;overflow:hidden;
+  }
+  .faction:hover{transform:translateY(-4px);border-color:var(--warm);box-shadow:0 12px 40px rgba(200,160,90,.25);}
+  .faction .banner{height:46px;display:flex;align-items:center;justify-content:center;font-size:38px;font-weight:900;letter-spacing:.2em;}
+  .faction h3{margin-top:14px;font-size:22px;letter-spacing:.1em;text-align:center;}
+  .faction .era{font-size:11px;text-align:center;color:var(--gold);letter-spacing:.25em;margin-top:2px;}
+  .faction .desc{margin-top:14px;font-size:13px;line-height:1.7;color:rgba(233,223,196,.78);}
+  .faction .stats{margin-top:14px;display:grid;grid-template-columns:1fr 1fr;gap:6px;font-size:12px;}
+  .faction .stat{display:flex;justify-content:space-between;color:rgba(233,223,196,.75);}
+  .faction .stat span:last-child{color:var(--warm);font-weight:bold;}
+  .faction.ming{--accent:var(--red);} .faction.ming .banner{color:var(--red);text-shadow:0 0 18px var(--red);}
+  .faction.nong{--accent:var(--green);} .faction.nong .banner{color:var(--green);text-shadow:0 0 18px var(--green);}
+  .faction.qing{--accent:var(--gold);} .faction.qing .banner{color:var(--gold);text-shadow:0 0 18px var(--gold);}
+  .faction .pick{
+    margin-top:18px;text-align:center;padding:8px;border:1px solid var(--accent);color:var(--accent);
+    letter-spacing:.3em;font-size:13px;border-radius:3px;transition:background .2s,color .2s;
+  }
+  .faction:hover .pick{background:var(--accent);color:#000;}
+
+  /* ----- HUD ----- */
+  #hud{position:absolute;inset:0;pointer-events:none;z-index:30;user-select:none;}
+  /* 准星 */
+  #crosshair{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:18px;height:18px;}
+  #crosshair::before,#crosshair::after{content:"";position:absolute;background:rgba(230,210,170,.85);box-shadow:0 0 4px #000;}
+  #crosshair::before{top:50%;left:50%;width:2px;height:2px;transform:translate(-1px,-1px);}
+  #crosshair .ar{position:absolute;background:rgba(230,210,170,.85);box-shadow:0 0 3px #000;}
+  #crosshair .top{top:-9px;left:-1px;width:2px;height:6px;}
+  #crosshair .bot{bottom:-9px;left:-1px;width:2px;height:6px;}
+  #crosshair .lft{left:-9px;top:-1px;width:6px;height:2px;}
+  #crosshair .rgt{right:-9px;top:-1px;width:6px;height:2px;}
+  #crosshair.melee .ar{display:none;}
+  #crosshair.melee::after{content:"";position:absolute;top:-12px;left:-12px;width:44px;height:44px;border:1px solid rgba(220,170,80,.6);border-radius:50%;box-shadow:0 0 6px rgba(220,170,80,.4);}
+
+  /* 血条/护甲/阵营 */
+  #vitals{position:absolute;left:28px;bottom:28px;width:280px;}
+  #vitals .row{display:flex;align-items:center;gap:8px;margin-bottom:7px;font-size:12px;letter-spacing:.15em;}
+  #vitals .label{width:46px;color:var(--gold);}
+  #vitals .bar{flex:1;height:14px;background:#1a1410;border:1px solid #3a2d1d;overflow:hidden;border-radius:2px;}
+  #vitals .fill{height:100%;transition:width .2s;}
+  #vitals .hp .fill{background:linear-gradient(90deg,#7a0d0d,#a81818,#d73838);}
+  #vitals .armor .fill{background:linear-gradient(90deg,#3a2d1d,#6e5a2a,#c8a05a);}
+  #vitals .num{width:40px;text-align:right;font-size:12px;}
+
+  /* 右下：武器/弹药 */
+  #weapon{position:absolute;right:28px;bottom:28px;text-align:right;}
+  #weapon .w-name{font-size:22px;letter-spacing:.2em;color:var(--paper);text-shadow:0 0 6px #000;}
+  #weapon .w-sub{font-size:11px;color:var(--gold);letter-spacing:.3em;margin-top:2px;}
+  #weapon .ammo{margin-top:8px;font-size:40px;font-weight:900;color:var(--warm);line-height:1;font-family:"Segoe UI",monospace;}
+  #weapon .ammo small{font-size:18px;color:rgba(220,170,80,.5);}
+  #weapon .reload{margin-top:6px;height:4px;width:200px;background:#1a1410;border:1px solid #3a2d1d;margin-left:auto;}
+  #weapon .reload i{display:block;height:100%;width:0%;background:linear-gradient(90deg,#7a0d0d,#d4a85a);}
+
+  /* 顶部：阵营/计分/回合 */
+  #scorebar{position:absolute;top:18px;left:50%;transform:translateX(-50%);display:flex;align-items:center;gap:18px;font-size:13px;letter-spacing:.2em;}
+  #scorebar .side{display:flex;align-items:center;gap:8px;padding:6px 14px;background:rgba(0,0,0,.5);border:1px solid rgba(200,160,90,.3);border-radius:3px;}
+  #scorebar .ming{color:var(--red);}
+  #scorebar .nong{color:var(--green);}
+  #scorebar .qing{color:var(--gold);}
+  #scorebar .vs{color:var(--gold);font-size:18px;}
+  #scorebar .round{padding:6px 16px;background:rgba(0,0,0,.6);border:1px solid rgba(200,160,90,.5);color:var(--paper);}
+  #scorebar b{font-size:18px;font-weight:900;}
+
+  /* 左上：阵营/我方 */
+  #myteam{position:absolute;left:20px;top:18px;padding:8px 14px;background:rgba(0,0,0,.55);border:1px solid rgba(200,160,90,.4);border-radius:3px;font-size:13px;letter-spacing:.2em;}
+  #myteam .banner{font-size:24px;font-weight:900;}
+  #myteam .role{color:var(--gold);font-size:11px;}
+
+  /* 小地图 */
+  #minimap{position:absolute;right:22px;top:22px;width:220px;height:220px;border:1px solid rgba(200,160,90,.5);background:rgba(0,0,0,.6);border-radius:3px;overflow:hidden;}
+  #minimap canvas{width:100%;height:100%;display:block;}
+  #minimap .lbl{position:absolute;top:4px;left:6px;font-size:10px;color:var(--gold);letter-spacing:.2em;}
+
+  /* 历史见证 */
+  #wit{position:absolute;left:50%;bottom:90px;transform:translateX(-50%);max-width:640px;text-align:center;pointer-events:none;}
+  #wit .line{opacity:0;transition:opacity .6s;font-size:14px;letter-spacing:.16em;color:rgba(220,170,80,.9);text-shadow:0 1px 3px #000;}
+  #wit .src{font-size:11px;color:rgba(120,90,40,.7);letter-spacing:.25em;margin-top:2px;}
+
+  /* 杀人提示 */
+  #killfeed{position:absolute;right:24px;top:252px;display:flex;flex-direction:column;gap:5px;align-items:flex-end;font-size:12px;letter-spacing:.1em;}
+  #killfeed .kf{padding:4px 10px;background:rgba(0,0,0,.65);border-left:3px solid var(--gold);color:var(--paper);}
+  #killfeed .kf .atkr{color:var(--warm);} #killfeed .kf .vic{color:#a0816b;}
+
+  /* 击杀信息 */
+  #hitmark{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:60px;height:60px;opacity:0;transition:opacity .12s;}
+  #hitmark.on{opacity:1;}
+  #hitmark svg{width:100%;height:100%;}
+
+  /* 伤害眩晕/血丝 */
+  #damage{position:absolute;inset:0;pointer-events:none;background:radial-gradient(circle at 50% 50%,transparent 35%,rgba(120,0,0,.55) 100%);opacity:0;transition:opacity .12s;}
+  #damage.on{opacity:1;}
+  #smoke-fx{position:absolute;inset:0;pointer-events:none;background:radial-gradient(circle at 50% 55%,rgba(160,140,110,.6) 0%,rgba(140,120,90,.0) 35%);opacity:0;transition:opacity .25s;}
+  #smoke-fx.on{opacity:.9;}
+
+  /* 状态条（处决/格挡提示） */
+  #prompt{position:absolute;bottom:200px;left:50%;transform:translateX(-50%);padding:8px 18px;background:rgba(0,0,0,.65);border:1px solid rgba(200,160,90,.5);font-size:14px;letter-spacing:.3em;color:var(--warm);border-radius:3px;opacity:0;transition:opacity .2s;}
+  #prompt.on{opacity:1;}
+  #prompt kbd{padding:2px 8px;border:1px solid var(--warm);border-radius:3px;color:var(--paper);font-family:inherit;}
+
+  /* 中央横幅 */
+  #banner{position:absolute;top:26%;left:50%;transform:translateX(-50%) scale(.96);font-size:52px;font-weight:900;letter-spacing:.35em;color:var(--paper);text-shadow:0 0 8px var(--red),0 0 26px rgba(168,24,24,.65),0 2px 4px #000;opacity:0;transition:opacity .35s,transform .35s;pointer-events:none;white-space:nowrap;}
+  #banner.on{opacity:1;transform:translateX(-50%) scale(1);}
+
+  /* 顶部按键提示 */
+  #keys{position:absolute;left:50%;bottom:24px;transform:translateX(-50%);display:flex;gap:12px;font-size:11px;letter-spacing:.2em;color:rgba(220,170,80,.55);}
+  #keys span{padding:4px 8px;border:1px solid rgba(200,160,90,.25);border-radius:2px;}
+  #keys b{color:var(--warm);}
+
+  /* 结算 */
+  #result{background:rgba(0,0,0,.85);}
+  #result .panel{background:linear-gradient(180deg,#1a0f08,#000);border:1px solid var(--gold);padding:48px 70px;text-align:center;}
+  #result h1{font-size:62px;letter-spacing:.3em;margin-bottom:12px;}
+  #result .sub{font-size:14px;letter-spacing:.4em;color:var(--gold);margin-bottom:26px;}
+  #result .stat-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:24px;margin-bottom:30px;}
+  #result .stat{padding:14px;border:1px solid rgba(200,160,90,.3);}
+  #result .stat .v{font-size:30px;color:var(--warm);}
+  #result .stat .l{font-size:11px;color:var(--gold);letter-spacing:.3em;}
+  #result button{padding:12px 38px;background:transparent;border:1px solid var(--gold);color:var(--gold);font-family:inherit;font-size:14px;letter-spacing:.3em;cursor:pointer;transition:all .2s;}
+  #result button:hover{background:var(--gold);color:#000;}
+
+  /* 火药安装进度条 */
+  #plant{position:absolute;left:50%;bottom:30px;transform:translateX(-50%);width:360px;text-align:center;}
+  #plant .bar{height:10px;background:#1a1410;border:1px solid #3a2d1d;overflow:hidden;}
+  #plant .bar i{display:block;height:100%;width:0%;background:linear-gradient(90deg,#7a0d0d,#d4a85a);}
+  #plant .lbl{font-size:11px;color:var(--gold);letter-spacing:.3em;margin-top:4px;}
+
+  /* 加载 */
+  #boot{background:#000;color:var(--paper);text-align:center;flex-direction:column;}
+  #boot h2{font-size:48px;letter-spacing:.3em;color:var(--gold);margin-bottom:14px;}
+  #boot p{font-size:13px;letter-spacing:.3em;color:rgba(200,160,90,.6);}
+  #boot .ring{width:46px;height:46px;border:2px solid rgba(200,160,90,.3);border-top-color:var(--gold);border-radius:50%;margin:30px auto 0;animation:spin 1s linear infinite;}
+  @keyframes spin{to{transform:rotate(360deg);}}
+
+  button, .btn{font-family:inherit;}
+
+  .btn-primary{display:inline-block;margin-top:24px;padding:12px 48px;
+    background:transparent;border:1px solid var(--gold);color:var(--gold);
+    font-family:inherit;font-size:15px;letter-spacing:.4em;cursor:pointer;transition:all .25s;}
+  .btn-primary:hover{background:var(--gold);color:#000;box-shadow:0 0 30px var(--gold);}
+  .btn-primary.sm{padding:8px 28px;font-size:12px;letter-spacing:.3em;margin-top:0;}
+</style>
+</head>
+<body>
+<div id="app">
+  <!-- 启动屏 -->
+  <div id="boot" class="overlay">
+    <h2>明末·烽火</h2>
+    <p>载入战阵...</p>
+    <div class="ring"></div>
+  </div>
+
+  <!-- 主菜单 -->
+  <div id="menu" class="overlay hidden">
+    <div class="menu-card">
+      <h1 class="menu-title">明末·烽火</h1>
+      <div class="menu-sub">MIngMo · Three-Banner War</div>
+      <p class="menu-tagline">
+        甲申之变，三营会战。火铳装填迟缓、烟雾蔽目、刀兵相向。
+        明军备火器以守国门、农民军流动作战以抗天命、清军铁骑重甲横扫中原。
+      </p>
+      <div class="menu-quote">天子守国门　君王死社稷</div>
+      <button class="btn-primary" id="btnPlay">开　战</button>
+      <div style="margin-top:18px;color:rgba(200,160,90,.45);font-size:11px;letter-spacing:.3em;">
+        一张地图：山寨关隘　·　A 火药库 ｜ B 粮仓　·　回合爆破制
+      </div>
+    </div>
+  </div>
+
+  <!-- 选营 -->
+  <div id="faction" class="overlay hidden">
+    <div class="wrap">
+      <h2>择　营</h2>
+      <div class="h-sub">CHOOSE YOUR BANNER</div>
+      <div class="factions" id="factionChoices"></div>
+    </div>
+  </div>
+
+  <!-- HUD -->
+  <div id="hud" class="hidden">
+    <div id="crosshair"><span class="ar top"></span><span class="ar bot"></span><span class="ar lft"></span><span class="ar rgt"></span></div>
+
+    <div id="myteam"><div class="banner" id="mtBanner"></div><div class="role" id="mtRole"></div></div>
+
+    <div id="scorebar">
+      <div class="side" id="sideAtk"></div>
+      <div class="round"><span id="roundTxt">第 1 回合</span><b id="timer">1:30</b></div>
+      <div class="side" id="sideDef"></div>
+    </div>
+
+    <div id="minimap"><div class="lbl">寨</div><canvas id="mini" width=220 height=220></canvas></div>
+
+    <div id="vitals">
+      <div class="row hp"><div class="label">血</div><div class="bar"><div class="fill" id="hpBar"></div></div><div class="num" id="hpNum">100</div></div>
+      <div class="row armor"><div class="label">甲</div><div class="bar"><div class="fill" id="armorBar"></div></div><div class="num" id="armorNum">0</div></div>
+    </div>
+
+    <div id="weapon">
+      <div class="w-name" id="wName">鸟铳</div>
+      <div class="w-sub" id="wSub">HUOCHONG · MATCHLOCK</div>
+      <div class="ammo"><span id="ammoCur">1</span><small>/<span id="ammoMax">1</span></small></div>
+      <div class="reload"><i id="reloadBar"></i></div>
+    </div>
+
+    <div id="wit"><div class="line" id="witLine"></div><div class="src" id="witSrc"></div></div>
+    <div id="banner"></div>
+    <div id="killfeed"></div>
+    <div id="hitmark"><svg viewBox="0 0 60 60"><path d="M30 6 L34 26 L54 30 L34 34 L30 54 L26 34 L6 30 L26 26 Z" fill="rgba(220,170,80,.9)" /></svg></div>
+    <div id="damage"></div>
+    <div id="smoke-fx"></div>
+    <div id="prompt"><span id="promptTxt"></span></div>
+
+    <div id="plant" class="hidden">
+      <div class="bar"><i id="plantBar"></i></div>
+      <div class="lbl" id="plantLbl"></div>
+    </div>
+
+    <div id="keys">
+      <span><b>WASD</b> 移动</span>
+      <span><b>左键</b> 开火/轻击</span>
+      <span><b>右键</b> 瞄准/格挡</span>
+      <span><b>E</b> 重击/安放</span>
+      <span><b>R</b> 装填</span>
+      <span><b>1</b> 铳</span>
+      <span><b>2</b> 刀</span>
+      <span><b>3</b> 弓(清)</span>
+      <span><b>F</b> 处决</span>
+      <span><b>Shift</b> 冲刺</span>
+      <span><b>M</b> 静音</span>
+    </div>
+  </div>
+
+  <!-- 结算 -->
+  <div id="result" class="overlay hidden">
+    <div class="panel">
+      <h1 id="resultTitle">胜　利</h1>
+      <div class="sub" id="resultSub">VICTORY</div>
+      <div class="stat-grid">
+        <div class="stat"><div class="v" id="rKill">0</div><div class="l">斩获</div></div>
+        <div class="stat"><div class="v" id="rDead">0</div><div class="l">阵亡</div></div>
+        <div class="stat"><div class="v" id="rRound">0</div><div class="l">胜局</div></div>
+      </div>
+      <button id="btnRetry">再　战</button>
+      <button id="btnMenu" style="margin-left:14px;">回 营</button>
+    </div>
+  </div>
+</div>
+
+<!-- Three.js CDN -->
+<script type="importmap">
+{
+  "imports": {
+    "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+    "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+  }
+}
+</script>
+
+<script type="module" src="./src/main.js"></script>
+</body>
+</html>

@@ -1,0 +1,7 @@
+{
+  "name": "fps-mingmo",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "明末·烽火 — 网页明末题材三阵营 FPS（类 CS 爆破）"
+}
