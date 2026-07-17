@@ -4,7 +4,7 @@
 
 ![tech](https://img.shields.io/badge/Three.js-r160-blue) ![tech](https://img.shields.io/badge/Zero-Build-ff69b4) ![tech](https://img.shields.io/badge/License-MIT-green)
 
-在线试玩（部署后）：见 `部署说明.md`。
+在线试玩：**https://showibin.github.io/FPS_MingMo/**（GitHub Pages，自动部署 main 分支）
 
 ---
 
@@ -91,18 +91,17 @@ python -m http.server 8080
 |---|---|
 | W/A/S/D | 移动 |
 | 鼠标 | 视角 |
-| 鼠标左键 | 开火 / 近战攻击 |
-| 鼠标右键 | 格挡 / 望远瞄准 |
-| Q / E | 轻击 / 重击（近战时） |
+| 鼠标左键 | 开火 / 近战轻击 / 拉弓 |
+| 鼠标右键 | 瞄准（铳）/ 格挡（刀） |
+| E | 近战重击；在 A/B 点安放或拆解火药 |
 | R | 装填 |
 | 1 | 切火铳 |
 | 2 | 切冷兵器 |
-| 3 | 清军切弓 |
+| 3 | 清军切角弓 |
 | F | 处决残血敌人 |
 | Shift | 冲刺 |
 | Space | 跳 |
 | C | 蹲 |
-| Tab | 阵营计分板 |
 | M | 静音 |
 | Esc | 解锁鼠标 |
 
