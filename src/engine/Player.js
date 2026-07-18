@@ -100,7 +100,7 @@ export class Player {
     const pressed = (name) => { const has = k.has(name); const was = this._keysPrev.has(name); return has && !was; };
     const lockdown = this._lockT > 0;
 
-    if (!lockdown) {
+    if (!lockdown && !input.shopOpen) {
       if (pressed("1") || pressed("digit1")) this._switch("primary");
       if (pressed("2") || pressed("digit2")) this._switch("melee");
       if (pressed("3") || pressed("digit3")) this._switch(this.weapons.secondary && this.weapons.secondary.kind === "bow" ? "secondary" : "melee");
@@ -153,7 +153,7 @@ export class Player {
     this.aiming = false;
     if (this.blocking && (!w || w.kind !== "melee")) this.blocking = false;
 
-    if (w && !lockdown) {
+    if (w && !lockdown && !input.shopOpen) {
       if (w.kind === "gun") {
         this.aiming = input.rdown;
         if (mRise && w.canFire()) {
@@ -174,7 +174,7 @@ export class Player {
             if (w.reloading) cb.onReload && cb.onReload(w.reloadNeed);
           }
         }
-        if ((pressed("r") || pressed("keyr")) && !w.loaded && !w.reloading) {
+        if ((pressed("r") || pressed("keyr")) && w.ammo < w.shots && !w.reloading) {
           w.startReload();
           if (w.reloading) cb.onReload && cb.onReload(w.reloadNeed);
         }

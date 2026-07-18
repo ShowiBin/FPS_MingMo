@@ -250,6 +250,29 @@
   @keyframes hpPulse{0%,100%{filter:brightness(1);}50%{filter:brightness(1.8);}}
   #scorebar .alv{font-size:10px;color:rgba(220,170,80,.7);margin:0 4px;}
 
+  /* 饷银 */
+  #money{font-size:15px;color:var(--gold);letter-spacing:.2em;margin-bottom:6px;text-shadow:0 0 6px #000;}
+
+  /* 军需铺 */
+  #shop{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:460px;max-width:92vw;background:linear-gradient(180deg,rgba(26,15,8,.96),rgba(8,5,3,.96));border:1px solid var(--gold);border-radius:4px;padding:14px 18px;pointer-events:none;z-index:40;}
+  #shop .shop-h{font-size:20px;letter-spacing:.4em;color:var(--paper);text-align:center;padding-bottom:10px;border-bottom:1px solid rgba(200,160,90,.35);display:flex;justify-content:center;gap:18px;align-items:baseline;}
+  #shop .shop-m{font-size:12px;color:var(--gold);letter-spacing:.2em;}
+  #shop .shop-it{display:flex;align-items:baseline;gap:8px;padding:7px 4px;font-size:13px;border-bottom:1px dashed rgba(200,160,90,.15);color:var(--paper);}
+  #shop .shop-it .n{color:var(--gold);font-family:monospace;}
+  #shop .shop-it .nm{min-width:76px;letter-spacing:.1em;}
+  #shop .shop-it .ds{flex:1;color:rgba(233,223,196,.55);font-size:11px;}
+  #shop .shop-it .pr{color:var(--warm);font-weight:bold;font-family:monospace;}
+  #shop .shop-it.poor{opacity:.38;}
+  #shop .shop-f{margin-top:8px;text-align:center;font-size:11px;color:rgba(200,160,90,.6);letter-spacing:.2em;}
+
+  /* 赏金飘字 */
+  #killfeed .rwd{border-left-color:#7ac86a;color:#a8e69a;font-family:monospace;animation:kfIn .2s ease-out;}
+
+  /* 伤害方向指示 */
+  #dmgdir{position:absolute;top:50%;left:50%;width:130px;height:130px;transform:translate(-50%,-50%);pointer-events:none;opacity:0;transition:opacity .3s;}
+  #dmgdir::before{content:"";position:absolute;inset:0;border-radius:50%;border:4px solid transparent;border-top-color:rgba(255,50,30,.9);filter:blur(.5px) drop-shadow(0 0 6px rgba(255,50,30,.6));}
+  #dmgdir.on{opacity:1;}
+
   /* 面板描金角 */
   #vitals,#weapon,#minimap,#scorebar .side,#myteam{position:relative;}
   #vitals::before,#minimap::before,#myteam::before{content:"";position:absolute;inset:-3px;pointer-events:none;
@@ -362,11 +385,17 @@
     </div>
 
     <div id="weapon">
+      <div id="money">饷 800</div>
       <div class="w-name" id="wName">鸟铳</div>
       <div class="w-sub" id="wSub">HUOCHONG · MATCHLOCK</div>
       <div class="ammo"><span id="ammoCur">1</span><small>/<span id="ammoMax">1</span></small></div>
       <div class="reload"><i id="reloadBar"></i></div>
     </div>
+
+    <!-- 军需铺 -->
+    <div id="shop" class="hidden"></div>
+    <!-- 伤害方向 -->
+    <div id="dmgdir"></div>
 
     <div id="wit"><div class="line" id="witLine"></div><div class="src" id="witSrc"></div></div>
     <div id="banner"></div>

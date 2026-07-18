@@ -11,7 +11,7 @@ import { Effects } from "../effects/Effects.js";
 import { Sfx } from "../effects/Sfx.js";
 import { HUD } from "../ui/UI.js";
 import { setupMobile } from "../ui/Mobile.js";
-import { FACTIONS, WEAPONS, WITNESSES, ACTIONS, BATTLES } from "../data/history.js";
+import { FACTIONS, WEAPONS, WITNESSES, ACTIONS, BATTLES, SHOP } from "../data/history.js";
 
 const MAX_ROUNDS = 7; // 先达 4 胜者赢
 const ROUND_TIME = 90;
@@ -36,6 +36,10 @@ export class Game {
     this._roundState = null;
     this.freezeT = 0;
     this._streak = 0;
+    this.money = 800;
+    this.buyT = 0;
+    this.kitDefuse = false;
+    this.kitPlant = false;
     this.sfx = new Sfx();
   }
 
@@ -87,10 +91,18 @@ export class Game {
       this.cam.updateProjectionMatrix();
     });
     addEventListener("keydown", (e) => {
-      if (e.key.toLowerCase() === "m") {
+      const k = e.key.toLowerCase();
+      if (k === "m") {
         const muted = this.sfx.toggle();
         this.hud && this.hud.bannerIntro(muted ? "静 音" : "开 声", 700);
       }
+      if (this.state !== "playing") return;
+      if (k === "b") {
+        if (this.buyT > 0 || this.shopOpen) this.toggleShop(!this.shopOpen);
+        else this.hud.bannerIntro("已非购置时辰", 700);
+      }
+      if (k === "escape" && this.shopOpen) this.toggleShop(false);
+      if (this.shopOpen && /^[1-9]$/.test(k)) this.buyItem(parseInt(k, 10) - 1);
     });
 
     this.hud = new HUD(this);
@@ -103,6 +115,7 @@ export class Game {
     this.factionChoice = factionKey;
     this.scoreMe = 0; this.scoreEnemy = 0; this.round = 1;
     this.player.stats = { kills: 0, deaths: 0 };
+    this.money = 800;
     this.sides = { atk: factionKey, def: opponentOf(factionKey) };
     this.startRound(true);
     this.state = "playing";
@@ -139,6 +152,10 @@ export class Game {
     this._roundState = null;
     this.freezeT = 0;
     this._streak = 0;
+    this.buyT = 12; // 购置时辰
+    this.shopOpen = false;
+    Input.shopOpen = false;
+    this.hud.toggleShop(false);
 
     this.hud.refreshScorebar();
     this.hud.bannerIntro(`第 ${this.round} 回合 · ${this.myAttacker ? "攻" : "守"}`);
@@ -212,6 +229,13 @@ export class Game {
 
         this.smoke.update(dtEff);
         this.fx.update(dtEff);
+        this.world.update(dtEff);
+
+        // 购置时辰
+        if (this.buyT > 0) {
+          this.buyT -= dtEff;
+          if (this.buyT <= 0 && this.shopOpen) this.toggleShop(false);
+        }
 
         // 震屏（在玩家写完相机后叠加）
         const sh = this.fx.consumeShake(dt);
@@ -324,6 +348,8 @@ export class Game {
     this.player.stats.kills++;
     this.sfx.kill();
     this.freezeT = 0.055; // 击杀顿帧
+    this.money += 250;
+    this.hud.reward("+250");
     const now = performance.now();
     if (now - (this._lastKillT || 0) < 4200) this._streak = (this._streak || 0) + 1;
     else this._streak = 1;
@@ -335,23 +361,58 @@ export class Game {
     }
   }
 
+  // ----- 军需铺 -----
+  shopList() { return SHOP.filter(it => !it.qing || this.factionChoice === "qing"); }
+
+  toggleShop(open) {
+    this.shopOpen = open;
+    Input.shopOpen = open;
+    this.hud.toggleShop(open);
+  }
+
+  buyItem(idx) {
+    const it = this.shopList()[idx];
+    if (!it) return;
+    if (this.money < it.price) { this.hud.bannerIntro("饷银不足", 700); return; }
+    this.money -= it.price;
+    this.sfx.click();
+    if (it.kind === "weapon") {
+      const def = WEAPONS[it.key];
+      const w = makeWeapon(it.key, this.scene, this.fx, this.world);
+      if (w && w.setFactionMul) w.setFactionMul(this.player.statsMul);
+      this.weapons[it.slot] = w;
+      this.player.setWeapons(this.weapons);
+      this.hud.bannerIntro(`购得 ${it.name}`, 800);
+    } else if (it.kind === "armor") {
+      this.player.armor = Math.min(100, this.player.armor + it.armor);
+      this.hud.bannerIntro(`披挂 ${it.name}`, 800);
+    } else if (it.kind === "kit") {
+      if (it.kit === "defuse") this.kitDefuse = true;
+      if (it.kit === "plant") this.kitPlant = true;
+      this.hud.bannerIntro(`置办 ${it.name}`, 800);
+    }
+    this.hud.refreshShop();
+  }
+
   onContext() {
     if (this.hud.isPlanting) return;
     if (this.myAttacker && !this.bombPlanted && this.world.atSite(this.player.pos)) {
       const siteName = this.world.atSiteName(this.player.pos);
       const sitePos = this.world.atSiteName(this.player.pos).startsWith("A") ? this.world.siteA : this.world.siteB;
-      this.hud.startPlant(`安放火药 · ${siteName}`, 5.0, () => {
+      this.hud.startPlant(`安放火药 · ${siteName}`, this.kitPlant ? 3 : 5, () => {
         this.bombPlanted = true;
         this.bombSite = siteName;
         this.bombSitePos = sitePos;
         this.timer = BOMB_TIME;
+        this.money += 300;
+        this.hud.reward("+300 埋药");
         this.sfx.plant();
         this.hud.bannerIntro("火药已埋！");
         this.hud.actionLine(random(ACTIONS.plant));
         this.hud.refreshScorebar();
       });
     } else if (!this.myAttacker && this.bombPlanted && this.world.atSite(this.player.pos)) {
-      this.hud.startPlant("拆解火药", 5.0, () => {
+      this.hud.startPlant("拆解火药", this.kitDefuse ? 2.5 : 5, () => {
         this.bombDefused = true;
         this.sfx.defuse();
         this.hud.actionLine(random(ACTIONS.defuse));
@@ -420,7 +481,11 @@ export class Game {
     if (this._roundState) return;
     this._roundState = "ending";
     this.hud.cancelPlant();
+    if (this.shopOpen) this.toggleShop(false);
     if (meWon) this.scoreMe++; else this.scoreEnemy++;
+    const award = meWon ? 1200 : 700;
+    this.money += award;
+    this.hud.reward(`${meWon ? "胜局" : "败局"} +${award}`);
     this.hud.bannerIntro(meWon ? "回合胜出" : "回合败北", 1800);
     this.hud.refreshScorebar();
     this.sfx.round();
@@ -455,6 +520,16 @@ export class Game {
     if (!this.player.alive || this.state !== "playing") return;
     this.player.damage(dmg, this.input);
     this.hud.addDamage();
+    // 伤害方向指示
+    if (srcPos) {
+      const p = this.player;
+      const dx = srcPos.x - p.pos.x, dz = srcPos.z - p.pos.z;
+      const l = Math.hypot(dx, dz) || 1;
+      const f = { x: -Math.sin(p.yaw), z: -Math.cos(p.yaw) };
+      const r = { x: -f.z, z: f.x };
+      const rel = Math.atan2((dx / l) * r.x + (dz / l) * r.z, (dx / l) * f.x + (dz / l) * f.z);
+      this.hud.showDamageDir(rel);
+    }
     this.sfx.hurt();
     this.fx.shake(0.22);
     if (!this.player.alive) {

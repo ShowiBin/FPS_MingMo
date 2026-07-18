@@ -129,7 +129,24 @@ export const WEAPONS = {
   "nong:club":      { name: "狼牙棒", kind:"melee",  range: 2.6, dmg: 38, lightTime: 0.55,heavyTime: 1.0, parryTime: 0.5, desc:"破甲钝击，近身凶猛。" },
   "qing:dao":       { name: "顺刀", kind:"melee",   range: 2.5, dmg: 34, lightTime: 0.5, heavyTime: 0.85,parryTime: 0.4, desc:"八旗短刀，配合重甲。" },
   "qing:bow":       { name: "角弓", kind:"bow",     range: 65,  maxDmg: 48, spread: 0.018, drawTime: 0.7, desc:"满洲角弓，无烟、稳定。需引弓。" },
+  // ---- 购置装备 ----
+  "eq:sanyan":      { name: "三眼铳", kind:"gun",   range: 26,  maxDmg: 52, spread: 0.05,  reloadTime: 10,  shots:3, smokeL: 0.5, desc:"三放连珠，近距暴雨，放罢抡击。" },
+  "eq:flintlock":   { name: "自生火铳", kind:"gun", range: 75,  maxDmg: 70, spread: 0.014, reloadTime: 4.5, shots:1, smokeL: 0.3, desc:"燧发之机，不须火绳，装填迅捷。" },
+  "eq:changqiang":  { name: "长枪", kind:"melee",   range: 3.2, dmg: 40, lightTime: 0.55, heavyTime: 1.0, parryTime: 0.45, desc:"丈二红缨，一寸长一寸强。" },
+  "eq:qiangbow":    { name: "强弓", kind:"bow",     range: 75,  maxDmg: 60, spread: 0.014, drawTime: 0.55, desc:"筋角复合，百步穿杨。" },
 };
+
+// 军需铺（B 键购买，回合开始 12s 内）
+export const SHOP = [
+  { id:"sanyan",    name:"三眼铳",   price:650, kind:"weapon", key:"eq:sanyan",    slot:"primary",   desc:"3 发连放 · 近距暴雨" },
+  { id:"flintlock", name:"自生火铳", price:900, kind:"weapon", key:"eq:flintlock", slot:"primary",   desc:"燧发快装 · 精度上佳" },
+  { id:"changqiang",name:"长枪",     price:400, kind:"weapon", key:"eq:changqiang",slot:"melee",     desc:"一寸长一寸强" },
+  { id:"qiangbow",  name:"强弓",     price:600, kind:"weapon", key:"eq:qiangbow",  slot:"secondary", qing:true, desc:"百步穿杨（清）" },
+  { id:"mianjia",   name:"棉甲",     price:400, kind:"armor",  armor:25,  desc:"+25 甲" },
+  { id:"tiejia",    name:"铁甲",     price:800, kind:"armor",  armor:50,  desc:"+50 甲" },
+  { id:"qian",      name:"拆弹钳",   price:200, kind:"kit",    kit:"defuse", desc:"拆解时间减半" },
+  { id:"huoyao",    name:"速燃火药", price:300, kind:"kit",    kit:"plant",  desc:"安放时间减半" },
+];
 
 // 战役时间线（开战背景）
 export const BATTLES = [

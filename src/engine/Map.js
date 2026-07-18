@@ -117,6 +117,9 @@ export class World {
     this.buildBarricade(s, 12,-6);
     this.buildBarricade(s,-22,-14);
 
+    // 场景细节：火药桶 / 粮袋 / 辎重车 / 灯笼柱 / 门旗 / 流云
+    this.buildDetails(s);
+
     // 投影：除地面/天空/标识环外全部投射阴影
     s.traverse(o => {
       if (!o.isMesh) return;
@@ -128,13 +131,109 @@ export class World {
     });
   }
 
+  buildDetails(s){
+    this._flags = this._flags || [];
+    this._clouds = [];
+    const plank = makePlankTexture();
+    // A：火药桶
+    const barrelMat = new THREE.MeshStandardMaterial({ map: plank, color: 0x4a3a28 });
+    for (const [bx, bz] of [[-34, 10], [-33.2, 11.2], [-34.2, 11.4], [-26, 18], [-33.5, 10.5, 0.95]]) {
+      const bar = new THREE.Mesh(new THREE.CylinderGeometry(0.42, 0.46, 0.95, 12), barrelMat);
+      bar.position.set(bx, 0.48, bz);
+      const band = new THREE.Mesh(new THREE.CylinderGeometry(0.45, 0.45, 0.08, 12),
+        new THREE.MeshStandardMaterial({ color: 0x222226, metalness: .6, roughness: .5 }));
+      band.position.set(bx, 0.7, bz);
+      s.add(bar, band);
+    }
+    // B：粮袋与陶罐
+    for (const [gx, gz] of [[23, -18], [24, -17], [22.5, -17.2], [29, -25], [28.2, -24.4]]) {
+      const sack = new THREE.Mesh(new THREE.SphereGeometry(0.55, 10, 8),
+        new THREE.MeshStandardMaterial({ color: 0x8a6f42, roughness: 1 }));
+      sack.position.set(gx, 0.38, gz); sack.scale.y = 0.68;
+      s.add(sack);
+    }
+    for (const [jx, jz] of [[29.5, -18], [22, -25]]) {
+      const jar = new THREE.Mesh(new THREE.CylinderGeometry(0.3, 0.38, 0.8, 10),
+        new THREE.MeshStandardMaterial({ color: 0x5a4a3a, roughness: .7 }));
+      jar.position.set(jx, 0.4, jz);
+      s.add(jar);
+    }
+    // 中路辎重车
+    const cart = new THREE.Group();
+    cart.position.set(6, 0, 3.5);
+    cart.rotation.y = 0.35;
+    const bed = new THREE.Mesh(new THREE.BoxGeometry(2.3, 0.28, 1.25), new THREE.MeshStandardMaterial({ map: plank, color: 0x7a5c38 }));
+    bed.position.y = 0.75; cart.add(bed);
+    for (const s2 of [-1, 1]) {
+      const wheel = new THREE.Mesh(new THREE.CylinderGeometry(0.55, 0.55, 0.12, 14), new THREE.MeshStandardMaterial({ color: 0x3a2a18 }));
+      wheel.rotation.z = Math.PI / 2;
+      wheel.position.set(0, 0.55, s2 * 0.72);
+      cart.add(wheel);
+      const rail = new THREE.Mesh(new THREE.BoxGeometry(2.3, 0.3, 0.08), new THREE.MeshStandardMaterial({ map: plank, color: 0x7a5c38 }));
+      rail.position.set(0, 1.0, s2 * 0.6); cart.add(rail);
+    }
+    const shaft = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, 1.8, 6), new THREE.MeshStandardMaterial({ color: 0x3a2a18 }));
+    shaft.rotation.z = Math.PI / 2 - 0.25; shaft.position.set(1.9, 0.55, 0);
+    cart.add(shaft);
+    s.add(cart);
+    this.colliders.push({ type: "box", obj: cart });
+    // 灯笼柱（寨门二、A/B 各一）
+    for (const [lx, lz] of [[-5.5, -2.5], [5.5, -2.5], [-27, 11], [24, -19]]) {
+      const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.08, 3.1, 8), new THREE.MeshStandardMaterial({ color: 0x2a1c10 }));
+      pole.position.set(lx, 1.55, lz); s.add(pole);
+      const lan = new THREE.Mesh(new THREE.SphereGeometry(0.26, 10, 10),
+        new THREE.MeshStandardMaterial({ color: 0xffb050, emissive: 0xff7018, emissiveIntensity: 1.6 }));
+      lan.position.set(lx, 3.0, lz); s.add(lan);
+      const li = new THREE.PointLight(0xff8830, 1.1, 11);
+      li.position.set(lx, 2.9, lz); s.add(li);
+      this._flecks = this._flecks || [];
+      this._flecks.push({ flame: lan, fire: li, t: Math.random() * 9 });
+    }
+    // 寨门竖幅
+    for (const s2 of [-1, 1]) {
+      const banner = new THREE.Mesh(new THREE.PlaneGeometry(0.85, 3.2),
+        new THREE.MeshStandardMaterial({ map: makeBannerTexture(s2 < 0 ? "寨" : "關"), side: THREE.DoubleSide, transparent: true }));
+      banner.position.set(s2 * 3.4, 4.6, 0.4);
+      s.add(banner);
+      this._flags.push(banner);
+    }
+    // 流云
+    const cloudTex = makeGlowTexture();
+    for (let i = 0; i < 6; i++) {
+      const cl = new THREE.Sprite(new THREE.SpriteMaterial({ map: cloudTex, color: 0xd8906a, transparent: true, opacity: 0.16 + Math.random() * 0.08, depthWrite: false, fog: false }));
+      cl.position.set((Math.random() - .5) * 400, 70 + Math.random() * 40, (Math.random() - .5) * 400);
+      const sc = 70 + Math.random() * 60;
+      cl.scale.set(sc, sc * 0.36, 1);
+      s.add(cl);
+      this._clouds.push(cl);
+    }
+  }
+
+  // 每帧动态：流云 / 火光 / 旗帜
+  update(dt){
+    for (const c of this._clouds || []) {
+      c.position.x += dt * 1.1;
+      if (c.position.x > 260) c.position.x = -260;
+    }
+    for (const f of this._flecks || []) {
+      f.t += dt;
+      const s = 0.85 + Math.sin(f.t * 9) * 0.18;
+      f.flame.scale.set(s, s * 1.25, s);
+      if (f.fire.intensity !== undefined) f.fire.intensity = 1.0 + Math.sin(f.t * 11) * 0.35;
+    }
+    const now = performance.now() / 1000;
+    for (const fl of this._flags || []) fl.rotation.y = Math.sin(now * 1.4 + fl.position.x) * 0.28;
+  }
+
   // 院墙
   buildWall(s, x1,z1, x2,z2, color=0x4a3a22, h=4){
     const dx = x2-x1, dz = z2-z1;
     const len = Math.hypot(dx,dz);
+    const tex = makeBrickTexture();
+    tex.repeat.set(Math.max(1, len/3.5), Math.max(1, h/3.5));
     const m = new THREE.Mesh(
       new THREE.BoxGeometry(0.6, h, len),
-      new THREE.MeshStandardMaterial({ color, roughness:1 })
+      new THREE.MeshStandardMaterial({ map: tex, color, roughness:1 })
     );
     m.position.set((x1+x2)/2, h/2, (z1+z2)/2);
     m.rotation.y = -Math.atan2(dz, dx) + Math.PI/2;
@@ -177,9 +276,11 @@ export class World {
   buildPowderHouse(s, at){
     const m = new THREE.Group();
     m.position.set(at.x, 0, at.z - 6);
-    const house = new THREE.Mesh(new THREE.BoxGeometry(8, 4, 5), new THREE.MeshStandardMaterial({ color:0x35241a }));
+    const plank = makePlankTexture(); plank.repeat.set(3, 1.5);
+    const house = new THREE.Mesh(new THREE.BoxGeometry(8, 4, 5), new THREE.MeshStandardMaterial({ map: plank, color:0x8a7050 }));
     house.position.y = 2; m.add(house);
-    const roof = new THREE.Mesh(new THREE.ConeGeometry(6, 3, 4), new THREE.MeshStandardMaterial({ color:0x553322 }));
+    const roofTex = makePlankTexture(); roofTex.repeat.set(4, 2);
+    const roof = new THREE.Mesh(new THREE.ConeGeometry(6, 3, 4), new THREE.MeshStandardMaterial({ map: roofTex, color:0x6a4030 }));
     roof.position.y = 5.5; roof.rotation.y = Math.PI/4; m.add(roof);
     // 标牌
     const plate = new THREE.Mesh(new THREE.BoxGeometry(2.5,1.2,0.18), new THREE.MeshStandardMaterial({ color:0x8a1818, emissive:0x3a0000, emissiveIntensity:.45 }));
@@ -190,12 +291,13 @@ export class World {
   buildGranary(s, at){
     const m = new THREE.Group();
     m.position.set(at.x, 0, at.z + 6);
+    const plank = makePlankTexture(); plank.repeat.set(3, 1);
     // 高脚仓
-    const base = new THREE.Mesh(new THREE.BoxGeometry(9, 1.2, 6), new THREE.MeshStandardMaterial({ color:0x4a3422 }));
+    const base = new THREE.Mesh(new THREE.BoxGeometry(9, 1.2, 6), new THREE.MeshStandardMaterial({ map: plank, color:0x9a7a52 }));
     base.position.y = 0.6; m.add(base);
-    const body = new THREE.Mesh(new THREE.CylinderGeometry(2.5,2.5,4,12), new THREE.MeshStandardMaterial({ color:0x65513a }));
+    const body = new THREE.Mesh(new THREE.CylinderGeometry(2.5,2.5,4,12), new THREE.MeshStandardMaterial({ map: makePlankTexture(), color:0xb08a5a }));
     body.position.y = 3; m.add(body);
-    const roof = new THREE.Mesh(new THREE.ConeGeometry(3.6, 2.6, 12), new THREE.MeshStandardMaterial({ color:0x3a2418 }));
+    const roof = new THREE.Mesh(new THREE.ConeGeometry(3.6, 2.6, 12), new THREE.MeshStandardMaterial({ color:0x4a3020 }));
     roof.position.y = 6.3; m.add(roof);
     s.add(m);
     this.colliders.push({ type:"box", obj:m, half:new THREE.Vector3(4.5,3,3) });
@@ -203,7 +305,8 @@ export class World {
   buildTower(s, x, z){
     const g = new THREE.Group();
     g.position.set(x, 0, z);
-    const leg = new THREE.Mesh(new THREE.BoxGeometry(3.6, 14, 3.6), new THREE.MeshStandardMaterial({ color:0x302314 }));
+    const plank = makePlankTexture(); plank.repeat.set(2, 6);
+    const leg = new THREE.Mesh(new THREE.BoxGeometry(3.6, 14, 3.6), new THREE.MeshStandardMaterial({ map: plank, color:0x6a5238 }));
     leg.position.y = 7; g.add(leg);
     const cap = new THREE.Mesh(new THREE.CylinderGeometry(4, 4, 2, 12), new THREE.MeshStandardMaterial({ color:0x4a3018 }));
     cap.position.y = 15.5; g.add(cap);
@@ -249,12 +352,14 @@ export class World {
       this.colliders.push({ type:"box", obj:box });
     }
     // 旗帜（营地远端）
+    this._flags = this._flags || [];
     for (const f of [{x:-36,z:-6,c:0x8a1818,t:"明"}, {x:36,z:8,c:0x3f7a4e,t:"闯"}, {x:34,z:22,c:0xc8a05a,t:"清"}]) {
       const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.08,0.08,7,6), new THREE.MeshStandardMaterial({ color:0x222 }));
       pole.position.set(f.x, 3.5, f.z); s.add(pole);
       const flag = new THREE.Mesh(new THREE.PlaneGeometry(2.4, 1.4), new THREE.MeshStandardMaterial({ color:f.c, emissive:f.c, emissiveIntensity:.2, side:THREE.DoubleSide }));
       flag.position.set(f.x+1.2, 6, f.z); s.add(flag);
       const txt = makeSprite(f.t, "#fff"); txt.position.set(f.x+1.2, 6, f.z+0.05); s.add(txt);
+      this._flags.push(flag);
     }
     // 火盆
     for (let i=0;i<6;i++){
@@ -388,4 +493,68 @@ function makeGlowTexture(){
   g.addColorStop(1, "rgba(255,140,60,0)");
   ctx.fillStyle = g; ctx.fillRect(0, 0, 128, 128);
   return new THREE.CanvasTexture(c);
+}
+
+// 砖墙纹理（浅色底，由材质 color 调色）
+function makeBrickTexture(){
+  const c = document.createElement("canvas");
+  c.width = c.height = 256;
+  const ctx = c.getContext("2d");
+  ctx.fillStyle = "#b9a684"; ctx.fillRect(0, 0, 256, 256);
+  ctx.strokeStyle = "rgba(60,45,30,.55)";
+  ctx.lineWidth = 3;
+  const course = 32;
+  for (let y = 0; y <= 256; y += course) {
+    ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(256, y); ctx.stroke();
+    const off = (y / course) % 2 ? 0 : 32;
+    for (let x = off; x <= 256; x += 64) {
+      ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x, y + course); ctx.stroke();
+    }
+  }
+  ctx.fillStyle = "rgba(70,55,35,.18)";
+  for (let i = 0; i < 700; i++) ctx.fillRect(Math.random() * 256, Math.random() * 256, 2, 2);
+  const tex = new THREE.CanvasTexture(c);
+  tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
+  return tex;
+}
+
+// 木板纹理
+function makePlankTexture(){
+  const c = document.createElement("canvas");
+  c.width = c.height = 256;
+  const ctx = c.getContext("2d");
+  ctx.fillStyle = "#c9a878"; ctx.fillRect(0, 0, 256, 256);
+  ctx.strokeStyle = "rgba(70,48,26,.6)";
+  ctx.lineWidth = 3;
+  for (let x = 0; x <= 256; x += 36) {
+    ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, 256); ctx.stroke();
+  }
+  ctx.strokeStyle = "rgba(90,64,36,.35)";
+  ctx.lineWidth = 1.4;
+  for (let i = 0; i < 26; i++) {
+    const x = Math.random() * 256, y = Math.random() * 256;
+    ctx.beginPath(); ctx.moveTo(x, y); ctx.quadraticCurveTo(x + 4, y + 20, x, y + 40); ctx.stroke();
+  }
+  ctx.fillStyle = "rgba(80,55,30,.15)";
+  for (let i = 0; i < 500; i++) ctx.fillRect(Math.random() * 256, Math.random() * 256, 2, 2);
+  const tex = new THREE.CanvasTexture(c);
+  tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
+  return tex;
+}
+
+// 竖幅布旗纹理
+function makeBannerTexture(char){
+  const c = document.createElement("canvas");
+  c.width = 128; c.height = 384;
+  const ctx = c.getContext("2d");
+  ctx.fillStyle = "#7a1414"; ctx.fillRect(0, 0, 128, 384);
+  ctx.strokeStyle = "#c8a05a"; ctx.lineWidth = 6;
+  ctx.strokeRect(8, 8, 112, 368);
+  ctx.font = "bold 84px 'STSong','Songti SC',serif";
+  ctx.textAlign = "center"; ctx.textBaseline = "middle";
+  ctx.fillStyle = "#e9dfc4";
+  ctx.shadowColor = "#000"; ctx.shadowBlur = 8;
+  ctx.fillText(char, 64, 192);
+  const tex = new THREE.CanvasTexture(c);
+  return tex;
 }

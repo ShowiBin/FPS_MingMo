@@ -17,6 +17,7 @@ export class HUD {
       smokeFx: $("smoke-fx"), prompt: $("prompt"), promptTxt: $("promptTxt"),
       plant: $("plant"), plantBar: $("plantBar"), plantLbl: $("plantLbl"),
       crosshair: $("crosshair"), mini: $("mini"), banner: $("banner"), ring: $("reloadring"),
+      money: $("money"), shop: $("shop"), dmgdir: $("dmgdir"),
     };
     this.mctx = this.el.mini.getContext("2d");
     this._witTimer = null;
@@ -102,6 +103,45 @@ export class HUD {
     this._bannerTimer = setTimeout(() => this.el.banner.classList.remove("on"), dur);
   }
 
+  // ---- 军需铺 ----
+  toggleShop(open) {
+    if (!this.el.shop) return;
+    if (open) this.refreshShop();
+    this.el.shop.classList.toggle("hidden", !open);
+  }
+  refreshShop() {
+    if (!this.el.shop) return;
+    const g = this.game;
+    const list = g.shopList();
+    this.el.shop.innerHTML = `<div class="shop-h">军 需 铺<span class="shop-m">饷银 ${g.money} 两</span></div>` +
+      list.map((it, i) => {
+        const poor = g.money < it.price;
+        return `<div class="shop-it ${poor ? "poor" : ""}"><span class="n">[${i + 1}]</span> <span class="nm">${it.name}</span> <span class="ds">${it.desc}</span> <span class="pr">${it.price}</span></div>`;
+      }).join("") +
+      `<div class="shop-f">按数字键购置 · B 关闭 · 时辰 ${Math.ceil(g.buyT)}s</div>`;
+  }
+
+  // ---- 赏金飘字 ----
+  reward(text) {
+    const kf = this.el.killfeed;
+    const div = document.createElement("div");
+    div.className = "kf rwd";
+    div.textContent = text;
+    kf.prepend(div);
+    while (kf.children.length > 6) kf.lastChild.remove();
+    setTimeout(() => div.remove(), 2400);
+  }
+
+  // ---- 伤害方向 ----
+  showDamageDir(rel) {
+    if (!this.el.dmgdir) return;
+    const el = this.el.dmgdir;
+    el.style.transform = `translate(-50%,-50%) rotate(${rel}rad)`;
+    el.classList.add("on");
+    clearTimeout(this._ddT);
+    this._ddT = setTimeout(() => el.classList.remove("on"), 600);
+  }
+
   // ---- 安放/拆解进度 ----
   startPlant(label, dur, cb) {
     if (this._planting) return;
@@ -139,8 +179,8 @@ export class HUD {
       this.el.crosshair.classList.toggle("melee", w.kind === "melee");
       if (w.kind === "gun") {
         this.el.wSub.textContent = "HUOCHONG · MATCHLOCK";
-        this.el.ammoCur.textContent = w.loaded ? "1" : "0";
-        this.el.ammoMax.textContent = "1";
+        this.el.ammoCur.textContent = w.ammo;
+        this.el.ammoMax.textContent = w.shots;
         this.el.reloadBar.style.width = `${w.reloadProgress() * 100}%`;
       } else if (w.kind === "bow") {
         this.el.wSub.textContent = "HORN BOW · 角弓";
@@ -194,6 +234,11 @@ export class HUD {
       if (b) b.textContent = `存 ${opN}`;
     }
 
+    // 饷银
+    if (this.el.money) this.el.money.textContent = `饷 ${game.money}`;
+    // 购置倒计时刷新
+    if (game.shopOpen && (this._shopT = (this._shopT || 0) + 1) % 30 === 0) this.refreshShop();
+
     // 安放进度
     if (this._planting) {
       const pl = this._planting;
@@ -224,7 +269,8 @@ export class HUD {
       if (game.myAttacker && !game.bombPlanted) txt = `<kbd>E</kbd> 安放火药`;
       else if (!game.myAttacker && game.bombPlanted) txt = `<kbd>E</kbd> 拆解火药`;
     }
-    if (!txt && w && w.kind === "gun" && !w.loaded && !w.reloading) txt = `<kbd>R</kbd> 装填`;
+    if (!txt && w && w.kind === "gun" && w.ammo < w.shots && !w.reloading) txt = `<kbd>R</kbd> 装填`;
+    if (!txt && game.buyT > 0 && !game.shopOpen) txt = `<kbd>B</kbd> 军需铺（${Math.ceil(game.buyT)}s）`;
     if (txt) {
       this.el.promptTxt.innerHTML = txt;
       this.el.prompt.classList.add("on");

@@ -55,6 +55,23 @@ export class AI {
     body.castShadow = head.castShadow = hat.castShadow = true;
     g.add(body, head, hat);
     this._head = head;
+    // 手臂
+    for (const s2 of [-1, 1]) {
+      const arm = new THREE.Mesh(new THREE.CylinderGeometry(0.07, 0.08, 0.62, 8), cloth);
+      arm.position.set(s2 * 0.34, 1.05, 0.05);
+      arm.rotation.z = s2 * 0.25;
+      arm.castShadow = true;
+      g.add(arm);
+    }
+    // 背旗（小队标识）
+    const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.02, 0.02, 1.1, 6),
+      new THREE.MeshStandardMaterial({ color: 0x2a2018 }));
+    pole.position.set(-0.16, 1.7, 0.14);
+    g.add(pole);
+    const pennant = new THREE.Mesh(new THREE.PlaneGeometry(0.42, 0.3),
+      new THREE.MeshStandardMaterial({ color: col, emissive: col, emissiveIntensity: .25, side: THREE.DoubleSide }));
+    pennant.position.set(0.06, 2.12, 0.14);
+    g.add(pennant);
     if (this.factionKey === "qing") { // 红缨
       const tassel = new THREE.Mesh(new THREE.SphereGeometry(0.06, 6, 6),
         new THREE.MeshStandardMaterial({ color: 0xaa1111 }));
