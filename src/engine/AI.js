@@ -66,6 +66,8 @@ export class AI {
     const label = makeLabel(fac.banner, fac.color);
     label.position.y = 2.15;
     g.add(label);
+    // 仅实体网格参与弹道检测（Sprite 参与 raycast 会抛异常导致整局卡死）
+    this._hits = [body, head, hat];
     this.group = g;
     this._body = body;
     this.scene.add(g);
@@ -80,7 +82,7 @@ export class AI {
 
   intersectsRay(ray) {
     if (!this.alive) return null;
-    const hits = ray.intersectObject(this.group, true);
+    const hits = ray.intersectObjects(this._hits, false);
     return hits.length ? hits[0] : null;
   }
 
@@ -276,6 +278,7 @@ export class AI {
   _fireGun(game, from, dir, target) {
     const range = this.gun.range;
     const ray = new THREE.Raycaster(from, dir, 0.3, range);
+    ray.camera = game.cam;
     // 玩家命中（球形近似）
     let hitT = null, hitDist = range, hitPoint = null;
     if (target === this.player) {
@@ -295,7 +298,10 @@ export class AI {
 
     this.fx.muzzleFlash(from, dir, 0.8);
     game.smoke.at(from, dir, this.gun.smokeL);
-    game.sfx && game.sfx.farFire();
+    if (game.sfx) {
+      const d = game.player ? from.distanceTo(game.player.pos) : 30;
+      game.sfx.farFire(Math.max(0.1, 1 - d / 90));
+    }
 
     if (hitT) {
       const fall = falloff(hitDist, range);

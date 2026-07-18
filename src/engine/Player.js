@@ -171,9 +171,13 @@ export class Player {
             this._recoil = Math.min(0.5, this._recoil + 0.22);
             this.pitch += 0.028;
             cb.onShoot && cb.onShoot(opts);
+            if (w.reloading) cb.onReload && cb.onReload(w.reloadNeed);
           }
         }
-        if ((pressed("r") || pressed("keyr")) && !w.loaded) w.startReload();
+        if ((pressed("r") || pressed("keyr")) && !w.loaded && !w.reloading) {
+          w.startReload();
+          if (w.reloading) cb.onReload && cb.onReload(w.reloadNeed);
+        }
       } else if (w.kind === "melee") {
         const wantBlock = input.rdown;
         if (wantBlock !== this.blocking) { this.blocking = wantBlock; w.setBlock(wantBlock); }

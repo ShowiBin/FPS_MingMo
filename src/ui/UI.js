@@ -156,7 +156,15 @@ export class HUD {
     // 计时
     const t = Math.max(0, game.timer);
     this.el.timer.textContent = `${Math.floor(t / 60)}:${String(Math.floor(t % 60)).padStart(2, "0")}`;
-    this.el.timer.style.color = (game.bombPlanted || t < 20) ? "#ff5544" : "";
+    const urgent = game.bombPlanted || t < 20;
+    this.el.timer.style.color = urgent ? "#ff5544" : "";
+    this.el.timer.classList.toggle("urgent", urgent);
+
+    // 动态准星（移动/后座扩散）
+    if (w && w.kind === "gun") {
+      const spd = 1 + (p.moving ? 0.9 : 0) + p._recoil * 5 + (p.aiming ? -0.35 : 0);
+      this.el.crosshair.style.setProperty("--spd", Math.max(0.5, spd).toFixed(2));
+    } else this.el.crosshair.style.setProperty("--spd", 1);
 
     // 安放进度
     if (this._planting) {

@@ -7,14 +7,17 @@ export class Menu {
   constructor(game) {
     this.game = game;
     this._buildFactions();
-    $("btnPlay").addEventListener("click", () => this.showFaction());
+    this._embers();
+    $("btnPlay").addEventListener("click", () => { game.sfx.click(); this.showFaction(); });
     $("btnRetry").addEventListener("click", () => {
+      game.sfx.click();
       $("result").classList.add("hidden");
       this._lock();
       game.startGame(game.factionChoice);
     });
     const bm = $("btnMenu");
     bm && bm.addEventListener("click", () => {
+      game.sfx.click();
       $("result").classList.add("hidden");
       this.showMenu();
     });
@@ -25,9 +28,23 @@ export class Menu {
     });
   }
 
+  _embers() {
+    const menu = $("menu");
+    for (let i = 0; i < 16; i++) {
+      const e = document.createElement("div");
+      e.className = "ember";
+      e.style.left = `${Math.random() * 100}%`;
+      e.style.animationDuration = `${7 + Math.random() * 9}s`;
+      e.style.animationDelay = `${Math.random() * 9}s`;
+      const s = 3 + Math.random() * 4;
+      e.style.width = e.style.height = `${s}px`;
+      menu.appendChild(e);
+    }
+  }
+
   _lock() {
     const dom = this.game.renderer && this.game.renderer.domElement;
-    if (dom && dom.requestPointerLock) dom.requestPointerLock();
+    try { if (dom && dom.requestPointerLock) dom.requestPointerLock(); } catch (e) { void e; }
   }
 
   showMenu() {
@@ -66,6 +83,7 @@ export class Menu {
         <div class="desc" style="margin-top:10px;color:${f.color}">${f.perk}</div>
         <div class="pick">择 此 营</div>`;
       div.addEventListener("click", () => {
+        this.game.sfx.click();
         $("faction").classList.add("hidden");
         this._lock();
         this.game.startGame(key);

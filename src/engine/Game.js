@@ -10,6 +10,7 @@ import { Smoke } from "../effects/Smoke.js";
 import { Effects } from "../effects/Effects.js";
 import { Sfx } from "../effects/Sfx.js";
 import { HUD } from "../ui/UI.js";
+import { setupMobile } from "../ui/Mobile.js";
 import { FACTIONS, WEAPONS, WITNESSES, ACTIONS, BATTLES } from "../data/history.js";
 
 const MAX_ROUNDS = 7; // 先达 4 胜者赢
@@ -66,6 +67,7 @@ export class Game {
 
     bindInput(this.renderer.domElement, Input);
     this.input = Input;
+    setupMobile(Input);
     addEventListener("resize", () => {
       this.renderer.setSize(innerWidth, innerHeight, true);
       this.cam.aspect = innerWidth / innerHeight;
@@ -93,6 +95,7 @@ export class Game {
     this.state = "playing";
     document.getElementById("hud").classList.remove("hidden");
     this.hud.bind(factionKey);
+    this.sfx.startAmbient();
   }
 
   startRound(firstTime = false) {
@@ -124,6 +127,7 @@ export class Game {
 
     this.hud.refreshScorebar();
     this.hud.bannerIntro(`第 ${this.round} 回合 · ${this.myAttacker ? "攻" : "守"}`);
+    this.sfx.round();
     // 历史见证：先战役时间线，后随机语录
     if (this.round <= BATTLES.length) {
       const b = BATTLES[this.round - 1];
@@ -169,37 +173,42 @@ export class Game {
 
   // ----- 主循环 -----
   loop(now) {
+    requestAnimationFrame(this.loop); // 先排下一帧，任何异常都不会卡死整局
     const dt = Math.min((now - this.last) / 1000, 0.05);
     this.last = now;
 
-    if (this.state === "playing") {
-      this.player.update(dt, this.input, {
-        onShoot: (o) => this.onPlayerShoot(o),
-        onMeleeHit: (e) => this.onPlayerMelee(e),
-        onMeleeSwing: () => this.sfx.melee(),
-        onBowShoot: (o) => this.onPlayerBow(o),
-        onContext: () => this.onContext(),
-        onExecute: (t) => this.tryExecute(t),
-      });
+    try {
+      if (this.state === "playing") {
+        this.player.update(dt, this.input, {
+          onShoot: (o) => this.onPlayerShoot(o),
+          onMeleeHit: (e) => this.onPlayerMelee(e),
+          onMeleeSwing: () => this.sfx.melee(),
+          onBowShoot: (o) => this.onPlayerBow(o),
+          onContext: () => this.onContext(),
+          onExecute: (t) => this.tryExecute(t),
+          onReload: (d) => this.sfx.reload(d),
+        });
 
-      for (const c of this.combatants) c.update(dt, this);
+        for (const c of this.combatants) c.update(dt, this);
 
-      this.smoke.update(dt);
-      this.fx.update(dt);
+        this.smoke.update(dt);
+        this.fx.update(dt);
 
-      // 震屏（在玩家写完相机后叠加）
-      const sh = this.fx.consumeShake(dt);
-      if (sh > 0.005) {
-        this.cam.rotation.x += (Math.random() - 0.5) * sh * 0.05;
-        this.cam.rotation.z += (Math.random() - 0.5) * sh * 0.05;
+        // 震屏（在玩家写完相机后叠加）
+        const sh = this.fx.consumeShake(dt);
+        if (sh > 0.005) {
+          this.cam.rotation.x += (Math.random() - 0.5) * sh * 0.05;
+          this.cam.rotation.z += (Math.random() - 0.5) * sh * 0.05;
+        }
+
+        this.timer -= dt;
+        this.checkRoundEnd();
+        this.hud.update(this);
       }
-
-      this.timer -= dt;
-      this.checkRoundEnd();
-      this.hud.update(this);
+      this.renderer.render(this.scene, this.cam);
+    } catch (err) {
+      console.error("[loop]", err);
     }
-    this.renderer.render(this.scene, this.cam);
-    requestAnimationFrame(this.loop);
   }
 
   // ----- 玩家行为回调 -----
@@ -212,6 +221,7 @@ export class Game {
 
     const from = opts.from.clone();
     const ray = new THREE.Raycaster(from, dir, 0.5, opts.range);
+    ray.camera = this.cam;
     let hit = null, dist = opts.range;
     for (const t of this.combatants) {
       if (!t.alive || t.friendly) continue;
@@ -234,6 +244,7 @@ export class Game {
       this.hud.hitmark(true);
       if (killed) {
         this.player.stats.kills++;
+        this.sfx.kill();
         this.hud.killfeed({ atk: "我", vic: hit.t.factionName, kind: "铳", own: true });
         if (Math.random() < 0.4) this.hud.actionLine(random(ACTIONS.kill));
       }
@@ -246,6 +257,7 @@ export class Game {
     dir.y += (Math.random() - 0.5) * o.spread;
     dir.normalize();
     const ray = new THREE.Raycaster(o.from, dir, 0.5, o.range);
+    ray.camera = this.cam;
     let hit = null, dist = o.range;
     for (const t of this.combatants) {
       if (!t.alive || t.friendly) continue;
@@ -262,6 +274,7 @@ export class Game {
       this.hud.hitmark(true);
       if (killed) {
         this.player.stats.kills++;
+        this.sfx.kill();
         this.hud.killfeed({ atk: "我", vic: hit.t.factionName, kind: "弓", own: true });
       }
     }
@@ -275,6 +288,7 @@ export class Game {
     this.hud.hitmark(true);
     if (killed) {
       this.player.stats.kills++;
+      this.sfx.kill();
       this.hud.killfeed({ atk: "我", vic: hit.t.factionName, kind: hit.kind, own: true });
       if (Math.random() < 0.5) this.hud.actionLine(random(ACTIONS.melee));
     }
