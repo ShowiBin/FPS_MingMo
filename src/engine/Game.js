@@ -34,6 +34,8 @@ export class Game {
     this.state = "menu"; // menu/playing/between/result
     this.last = performance.now();
     this._roundState = null;
+    this.freezeT = 0;
+    this._streak = 0;
     this.sfx = new Sfx();
   }
 
@@ -41,23 +43,34 @@ export class Game {
     this.renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: "high-performance" });
     this.renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
     this.renderer.setSize(innerWidth, innerHeight, true);
+    this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    this.renderer.toneMappingExposure = 1.1;
+    this.renderer.outputColorSpace = THREE.SRGBColorSpace;
+    this.renderer.shadowMap.enabled = true;
+    this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
     canvas.parentNode.appendChild(this.renderer.domElement);
     this.renderer.domElement.style.cssText = "width:100%;height:100%;display:block;";
     canvas.remove && canvas.remove();
 
     this.scene = new THREE.Scene();
-    this.scene.background = new THREE.Color("#0a0806");
-    this.scene.fog = new THREE.Fog(0x14100a, 30, 240);
+    this.scene.background = new THREE.Color("#1a1410");
+    this.scene.fog = new THREE.Fog(0x2a1c12, 40, 260);
 
     this.cam = new THREE.PerspectiveCamera(75, innerWidth / innerHeight, 0.05, 800);
     this.cam.position.set(0, 1.6, 0);
     this.scene.add(this.cam); // 视模挂在相机上，必须入场景
 
-    this.scene.add(new THREE.AmbientLight(0xffd9b3, 0.25));
-    const sun = new THREE.DirectionalLight(0xffc188, 1.1);
-    sun.position.set(50, 90, -20);
+    this.scene.add(new THREE.AmbientLight(0xffd9b3, 0.22));
+    const sun = new THREE.DirectionalLight(0xffb070, 1.5);
+    sun.position.set(60, 80, -30);
+    sun.castShadow = true;
+    sun.shadow.mapSize.set(1024, 1024);
+    sun.shadow.camera.left = -70; sun.shadow.camera.right = 70;
+    sun.shadow.camera.top = 70; sun.shadow.camera.bottom = -70;
+    sun.shadow.camera.far = 260;
+    sun.shadow.bias = -0.002;
     this.scene.add(sun);
-    this.scene.add(new THREE.HemisphereLight(0x6688aa, 0x352616, 0.45));
+    this.scene.add(new THREE.HemisphereLight(0x5a6f9a, 0x3a2a18, 0.5));
 
     this.world = new World(this.scene);
     this.combatants = [];
@@ -124,6 +137,8 @@ export class Game {
     this.bombSitePos = null;
     this.timer = ROUND_TIME;
     this._roundState = null;
+    this.freezeT = 0;
+    this._streak = 0;
 
     this.hud.refreshScorebar();
     this.hud.bannerIntro(`第 ${this.round} 回合 · ${this.myAttacker ? "攻" : "守"}`);
@@ -179,7 +194,11 @@ export class Game {
 
     try {
       if (this.state === "playing") {
-        this.player.update(dt, this.input, {
+        // 击杀顿帧
+        let dtEff = dt;
+        if (this.freezeT > 0) { this.freezeT -= dt; dtEff = this.freezeT > 0 ? 0 : dt; }
+
+        this.player.update(dtEff, this.input, {
           onShoot: (o) => this.onPlayerShoot(o),
           onMeleeHit: (e) => this.onPlayerMelee(e),
           onMeleeSwing: () => this.sfx.melee(),
@@ -189,10 +208,10 @@ export class Game {
           onReload: (d) => this.sfx.reload(d),
         });
 
-        for (const c of this.combatants) c.update(dt, this);
+        for (const c of this.combatants) c.update(dtEff, this);
 
-        this.smoke.update(dt);
-        this.fx.update(dt);
+        this.smoke.update(dtEff);
+        this.fx.update(dtEff);
 
         // 震屏（在玩家写完相机后叠加）
         const sh = this.fx.consumeShake(dt);
@@ -201,7 +220,7 @@ export class Game {
           this.cam.rotation.z += (Math.random() - 0.5) * sh * 0.05;
         }
 
-        this.timer -= dt;
+        this.timer -= dtEff;
         this.checkRoundEnd();
         this.hud.update(this);
       }
@@ -226,26 +245,31 @@ export class Game {
     for (const t of this.combatants) {
       if (!t.alive || t.friendly) continue;
       const ix = t.intersectsRay(ray);
-      if (ix && ix.distance < dist) { dist = ix.distance; hit = { t, point: ix.point }; }
+      if (ix && ix.distance < dist) { dist = ix.distance; hit = { t, point: ix.point, object: ix.object }; }
     }
     const wallHit = this.world.raycastWalls(ray, opts.range);
     if (wallHit && (!hit || wallHit.distance < dist)) hit = null;
 
     this.fx.muzzleFlash(from, dir, opts.power);
     this.smoke.at(from, dir, opts.smokeL);
+    this.fx.tracer(from.clone().addScaledVector(dir, 1.1), hit ? hit.point : (wallHit ? wallHit.point : from.clone().addScaledVector(dir, opts.range)));
+    if (!hit && wallHit) this.fx.impact(wallHit.point);
     this.hud.smokePuff();
     this.sfx.fire();
+    this.player.fovKick = 1;
     if (Math.random() < 0.3) this.hud.actionLine(random(ACTIONS.fire));
 
     if (hit) {
-      const dmg = opts.maxDmg * falloff(dist, opts.range);
+      const isHead = hit.object === hit.t._head;
+      const dmg = opts.maxDmg * falloff(dist, opts.range) * (isHead ? 1.6 : 1);
       const killed = hit.t.damage(dmg, dir, from);
       this.fx.splat(hit.point, dmg);
-      this.hud.hitmark(true);
+      this.fx.dmgNumber(hit.point, dmg, isHead);
+      this.hud.hitmark(true, isHead);
+      if (isHead) this.sfx.headshot();
       if (killed) {
-        this.player.stats.kills++;
-        this.sfx.kill();
-        this.hud.killfeed({ atk: "我", vic: hit.t.factionName, kind: "铳", own: true });
+        this._onKill();
+        this.hud.killfeed({ atk: "我", vic: hit.t.factionName, kind: isHead ? "铳·首" : "铳", own: true });
         if (Math.random() < 0.4) this.hud.actionLine(random(ACTIONS.kill));
       }
     }
@@ -262,19 +286,21 @@ export class Game {
     for (const t of this.combatants) {
       if (!t.alive || t.friendly) continue;
       const ix = t.intersectsRay(ray);
-      if (ix && ix.distance < dist) { dist = ix.distance; hit = { t, point: ix.point }; }
+      if (ix && ix.distance < dist) { dist = ix.distance; hit = { t, point: ix.point, object: ix.object }; }
     }
     const wallHit = this.world.raycastWalls(ray, o.range);
     if (wallHit && (!hit || wallHit.distance < dist)) hit = null;
     this.sfx.bow();
     if (hit) {
-      const dmg = o.maxDmg * falloff(dist, o.range);
+      const isHead = hit.object === hit.t._head;
+      const dmg = o.maxDmg * falloff(dist, o.range) * (isHead ? 1.6 : 1);
       const killed = hit.t.damage(dmg, dir, o.from);
       this.fx.splat(hit.point, dmg);
-      this.hud.hitmark(true);
+      this.fx.dmgNumber(hit.point, dmg, isHead);
+      this.hud.hitmark(true, isHead);
+      if (isHead) this.sfx.headshot();
       if (killed) {
-        this.player.stats.kills++;
-        this.sfx.kill();
+        this._onKill();
         this.hud.killfeed({ atk: "我", vic: hit.t.factionName, kind: "弓", own: true });
       }
     }
@@ -285,12 +311,27 @@ export class Game {
     this.sfx.meleeHit();
     const killed = hit.t.damage(hit.dmg, hit.dir, hit.from);
     this.fx.splat(hit.point, hit.dmg);
+    this.fx.dmgNumber(hit.point, hit.dmg, false);
     this.hud.hitmark(true);
     if (killed) {
-      this.player.stats.kills++;
-      this.sfx.kill();
+      this._onKill();
       this.hud.killfeed({ atk: "我", vic: hit.t.factionName, kind: hit.kind, own: true });
       if (Math.random() < 0.5) this.hud.actionLine(random(ACTIONS.melee));
+    }
+  }
+
+  _onKill() {
+    this.player.stats.kills++;
+    this.sfx.kill();
+    this.freezeT = 0.055; // 击杀顿帧
+    const now = performance.now();
+    if (now - (this._lastKillT || 0) < 4200) this._streak = (this._streak || 0) + 1;
+    else this._streak = 1;
+    this._lastKillT = now;
+    if (this._streak >= 2) {
+      const names = ["", "", "双", "三", "四", "五", "六"];
+      this.hud.bannerIntro(`${names[Math.min(6, this._streak)]} 连 杀`, 900);
+      this.sfx.streak(this._streak);
     }
   }
 
@@ -323,7 +364,7 @@ export class Game {
     if (!tgt || !tgt.alive || tgt.hp > 35) return;
     tgt.damage(999, this.cam.getWorldDirection(new THREE.Vector3()), this.cam.position.clone());
     this.fx.splat(tgt.position.clone().setY(1.1), 60);
-    this.player.stats.kills++;
+    this._onKill();
     this.sfx.execute();
     this.hud.killfeed({ atk: "我", vic: tgt.factionName, kind: "处决", own: true });
     this.hud.actionLine(random(ACTIONS.execute));

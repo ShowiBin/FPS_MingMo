@@ -13,28 +13,28 @@ export class Smoke {
 
   // 在 from 沿 dir 喷一团烟，life 决定存续（0.5~0.7 -> 约 4~6s）
   at(from, dir, life = 0.55) {
-    const n = 12;
+    const n = 10;
     for (let i = 0; i < n; i++) {
       if (this.parts.length >= MAX) this._kill(this.parts[0]);
       const sp = new THREE.Sprite(this.mat.clone());
-      const t = 0.35 + Math.random() * 1.3;
+      const t = 1.0 + Math.random() * 1.6; // 在枪口前方生成，避免糊玩家一脸
       sp.position.copy(from).addScaledVector(dir, t);
-      sp.position.x += (Math.random() - .5) * .35;
-      sp.position.y += (Math.random() - .5) * .25;
-      sp.position.z += (Math.random() - .5) * .35;
+      sp.position.x += (Math.random() - .5) * .4;
+      sp.position.y += (Math.random() - .6) * .3;
+      sp.position.z += (Math.random() - .5) * .4;
       const s = 0.35 + Math.random() * 0.5;
       sp.scale.set(s, s, 1);
-      sp.material.opacity = 0.5 + Math.random() * 0.2;
+      sp.material.opacity = 0.36 + Math.random() * 0.16;
       sp.material.rotation = Math.random() * Math.PI;
       this.scene.add(sp);
       this.parts.push({
         sp,
         vel: new THREE.Vector3(
-          dir.x * 0.35 + (Math.random() - .5) * .3,
-          0.25 + Math.random() * .35,
-          dir.z * 0.35 + (Math.random() - .5) * .3),
+          dir.x * 0.9 + (Math.random() - .5) * .3,
+          0.2 + Math.random() * .3,
+          dir.z * 0.9 + (Math.random() - .5) * .3),
         age: 0,
-        ttl: 2.8 + life * 5 + Math.random(),
+        ttl: 2.6 + life * 5 + Math.random(),
         grow: 0.9 + Math.random() * 0.8,
       });
     }
@@ -56,7 +56,7 @@ export class Smoke {
       const k = 1 + p.grow * dt;
       p.sp.scale.multiplyScalar(k);
       const r = p.age / p.ttl;
-      p.sp.material.opacity = 0.62 * (1 - r) * (r < 0.12 ? r / 0.12 : 1);
+      p.sp.material.opacity = 0.45 * (1 - r) * (r < 0.12 ? r / 0.12 : 1);
       p.sp.material.rotation += dt * 0.3;
     }
   }

@@ -34,6 +34,8 @@ export class AI {
     this.wpIndex = 0;
     this.route = [];
     this._repath = 0;
+    this._seed = Math.random() * 10;
+    this._flinch = 0;
     this._buildMesh();
   }
 
@@ -50,7 +52,9 @@ export class AI {
     const hat = new THREE.Mesh(new THREE.ConeGeometry(0.24, 0.22, 10),
       new THREE.MeshStandardMaterial({ color: col.clone().multiplyScalar(0.6), roughness: .8 }));
     hat.position.y = 1.76;
+    body.castShadow = head.castShadow = hat.castShadow = true;
     g.add(body, head, hat);
+    this._head = head;
     if (this.factionKey === "qing") { // 红缨
       const tassel = new THREE.Mesh(new THREE.SphereGeometry(0.06, 6, 6),
         new THREE.MeshStandardMaterial({ color: 0xaa1111 }));
@@ -94,6 +98,16 @@ export class AI {
       this.armor -= ab; dmg -= ab;
     }
     this.hp -= dmg;
+    this._flinch = 1;
+    // 击退
+    if (dir) {
+      const kb = dir.clone(); kb.y = 0;
+      if (kb.lengthSq() > 0.001) {
+        kb.normalize().multiplyScalar(0.16);
+        const np = new THREE.Vector3(this.position.x + kb.x, 0.9, this.position.z + kb.z);
+        if (!this.world.collideSphere(np, 0.42)) { this.position.x = np.x; this.position.z = np.z; }
+      }
+    }
     // 受击朝向攻击者
     if (from) this.yaw = Math.atan2(from.x - this.position.x, from.z - this.position.z);
     if (this.hp <= 0) {
@@ -129,6 +143,7 @@ export class AI {
   update(dt, game) {
     if (!this.alive) return;
     if (this.meleeCd > 0) this.meleeCd -= dt;
+    if (this._flinch > 0) this._flinch = Math.max(0, this._flinch - dt * 5);
 
     // ---- 目标扫描 ----
     this.scanT -= dt;
@@ -201,8 +216,9 @@ export class AI {
         const need = this.gun.reloadTime / Math.max(0.3, this.stats.reloadMul);
         if (this.reloadT >= need) this.loaded = true;
       }
-      // 距离过远则逼近
+      // 距离过远则逼近，中距离游走射击
       if (this.targetDist > 26) this._moveToward(dt, tp, 3.4 * this.stats.speed, game);
+      else if (this.targetDist > 5) this._strafe(dt, tp, game);
       this._syncMesh();
       return;
     }
@@ -275,6 +291,16 @@ export class AI {
     }
   }
 
+  _strafe(dt, tp, game) {
+    const t = performance.now() / 1000 + this._seed;
+    const s = Math.sin(t * 1.7);
+    let px = -(tp.z - this.position.z), pz = (tp.x - this.position.x);
+    const l = Math.hypot(px, pz) || 1; px /= l; pz /= l;
+    const step = 2.0 * this.stats.speed * dt * s;
+    const np = new THREE.Vector3(this.position.x + px * step, 0.9, this.position.z + pz * step);
+    if (!this.world.collideSphere(np, 0.42)) { this.position.x = np.x; this.position.z = np.z; }
+  }
+
   _fireGun(game, from, dir, target) {
     const range = this.gun.range;
     const ray = new THREE.Raycaster(from, dir, 0.3, range);
@@ -297,6 +323,7 @@ export class AI {
     if (wall && wall.distance < hitDist) { hitT = null; hitPoint = wall.point; hitDist = wall.distance; }
 
     this.fx.muzzleFlash(from, dir, 0.8);
+    this.fx.tracer(from.clone().addScaledVector(dir, 1.0), hitPoint || from.clone().addScaledVector(dir, range), 0xffb060);
     game.smoke.at(from, dir, this.gun.smokeL);
     if (game.sfx) {
       const d = game.player ? from.distanceTo(game.player.pos) : 30;
@@ -318,6 +345,10 @@ export class AI {
   _syncMesh() {
     this.group.position.copy(this.position);
     this.group.rotation.y = this.yaw;
+    // 受击抖动
+    const f = this._flinch || 0;
+    this.group.scale.y = 1 - 0.15 * f;
+    this.group.rotation.x = -0.1 * f;
   }
 }
 

@@ -217,9 +217,13 @@ export class Player {
     this._bobT += dt * (this.moving ? (sprint ? 11 : 8) : 2);
     const bobY = Math.sin(this._bobT * 2) * (this.moving ? 0.035 : 0.008);
     this.cam.position.set(this.pos.x, this.pos.y + eye + bobY, this.pos.z);
-    this.cam.rotation.set(this.pitch, this.yaw, 0, "YXZ");
+    // 侧移倾斜（相机 roll）
+    const lat = this.vel.x * -Math.cos(this.yaw) + this.vel.z * Math.sin(this.yaw);
+    this._roll = (this._roll || 0) + ((-lat * 0.006) - (this._roll || 0)) * Math.min(1, dt * 6);
+    this.cam.rotation.set(this.pitch, this.yaw, this._roll, "YXZ");
     if (this._recoil > 0) this._recoil = Math.max(0, this._recoil - dt * 1.8);
-    const targetFov = this.aiming ? 58 : this.fovBase;
+    const targetFov = (this.aiming ? 58 : this.fovBase) - (this.fovKick || 0) * 4;
+    if (this.fovKick > 0) this.fovKick = Math.max(0, this.fovKick - dt * 5);
     if (Math.abs(this.cam.fov - targetFov) > 0.1) {
       this.cam.fov += (targetFov - this.cam.fov) * Math.min(1, dt * 10);
       this.cam.updateProjectionMatrix();

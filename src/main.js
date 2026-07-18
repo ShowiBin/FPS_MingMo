@@ -10,5 +10,7 @@ game.mount(canvas);
 
 const menu = new Menu(game);
 
+window.__game = game; // 调试/自动化测试挂钩
+
 document.getElementById("boot").classList.add("hidden");
 menu.showMenu();

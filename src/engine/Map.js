@@ -5,8 +5,8 @@ const SITE_A = new THREE.Vector3(-30, 0, 14);
 const SITE_B = new THREE.Vector3( 26, 0,-22);
 const SITE_RADIUS = 8.5;
 
-const SPAWN_MAP   = new THREE.Vector3(-46, 0,-2);
-const SPAWN_NONG  = new THREE.Vector3( 46, 0,  2);
+const SPAWN_MAP   = new THREE.Vector3(-42, 0,-2);
+const SPAWN_NONG  = new THREE.Vector3( 44, 0,  2);
 const SPAWN_QING  = new THREE.Vector3( 40, 0, 22);
 
 export class World {
@@ -32,20 +32,49 @@ export class World {
   // ---- 构造 ----
   build() {
     const s = this.scene;
-    // 地面（土+石）
-    const groundMat = new THREE.MeshStandardMaterial({ color:0x2a2218, roughness:1.0, metalness:0 });
+    // 天空穹顶（黄昏渐变）
+    const sky = new THREE.Mesh(
+      new THREE.SphereGeometry(380, 24, 16),
+      new THREE.ShaderMaterial({
+        side: THREE.BackSide, depthWrite: false, fog: false,
+        uniforms: {},
+        vertexShader: `varying vec3 vP; void main(){ vP = position; gl_Position = projectionMatrix*modelViewMatrix*vec4(position,1.0); }`,
+        fragmentShader: `varying vec3 vP;
+          void main(){
+            float h = normalize(vP).y;
+            vec3 top = vec3(0.06,0.09,0.16);
+            vec3 mid = vec3(0.55,0.28,0.14);
+            vec3 low = vec3(0.85,0.48,0.2);
+            vec3 c = h > 0.25 ? mix(mid, top, smoothstep(0.25,0.9,h)) : mix(low, mid, smoothstep(-0.05,0.25,h));
+            gl_FragColor = vec4(c,1.0);
+          }`,
+      })
+    );
+    s.add(sky);
+    // 落日光斑
+    const sunDisc = new THREE.Sprite(new THREE.SpriteMaterial({
+      map: makeGlowTexture(), color: 0xffc070, transparent: true, opacity: .95,
+      blending: THREE.AdditiveBlending, depthWrite: false, fog: false,
+    }));
+    sunDisc.position.set(200, 120, -100);
+    sunDisc.scale.set(90, 90, 1);
+    s.add(sunDisc);
+
+    // 地面（土+石，程序化噪点纹理）
+    const groundMat = new THREE.MeshStandardMaterial({ map: makeNoiseTexture("#2e251a", "#241c12", 24), roughness: 1.0, metalness: 0 });
     const ground = new THREE.Mesh(new THREE.PlaneGeometry(220, 220), groundMat);
     ground.rotation.x = -Math.PI/2;
+    ground.receiveShadow = true;
     s.add(ground);
 
     // 道路（土色）
-    const road = new THREE.Mesh(new THREE.PlaneGeometry(110,5), new THREE.MeshStandardMaterial({ color:0x5a4a32, roughness:1 }));
-    road.rotation.x = -Math.PI/2; road.position.y = 0.02; s.add(road);
+    const road = new THREE.Mesh(new THREE.PlaneGeometry(110,5), new THREE.MeshStandardMaterial({ map: makeNoiseTexture("#5f4d34", "#4a3a26", 10), roughness: 1 }));
+    road.rotation.x = -Math.PI/2; road.position.y = 0.02; road.receiveShadow = true; s.add(road);
 
     // 山体（背景）
     for (let i=0;i<8;i++){
       const r = 18 + Math.random()*30;
-      const m = new THREE.Mesh(new THREE.ConeGeometry(r, 25+r, 6), new THREE.MeshStandardMaterial({ color:0x251608, roughness:1 }));
+      const m = new THREE.Mesh(new THREE.ConeGeometry(r, 25+r, 6), new THREE.MeshStandardMaterial({ color:0x1e1a24, roughness:1 }));
       // distant ring
       const ang = (i/8)*Math.PI*2;
       m.position.set(Math.cos(ang)*105, 12, Math.sin(ang)*105);
@@ -87,6 +116,16 @@ export class World {
     this.buildBarricade(s, 0,8);
     this.buildBarricade(s, 12,-6);
     this.buildBarricade(s,-22,-14);
+
+    // 投影：除地面/天空/标识环外全部投射阴影
+    s.traverse(o => {
+      if (!o.isMesh) return;
+      const t = o.geometry && o.geometry.type;
+      const r = o.geometry && o.geometry.parameters && o.geometry.parameters.radius;
+      if (t === "PlaneGeometry" || t === "RingGeometry") return;
+      if (t === "SphereGeometry" && r > 100) return;
+      o.castShadow = true;
+    });
   }
 
   // 院墙
@@ -313,4 +352,40 @@ function makeSprite(text, color){
   const sp = new THREE.Sprite(mat);
   sp.scale.set(2, 1, 1);
   return sp;
+}
+
+// 程序化噪点地面纹理
+function makeNoiseTexture(base, fleck, repeat = 16){
+  const c = document.createElement("canvas");
+  c.width = c.height = 256;
+  const ctx = c.getContext("2d");
+  ctx.fillStyle = base; ctx.fillRect(0, 0, 256, 256);
+  ctx.fillStyle = fleck;
+  for (let i = 0; i < 2200; i++) {
+    ctx.globalAlpha = 0.04 + Math.random() * 0.1;
+    const s = 1 + Math.random() * 2.4;
+    ctx.fillRect(Math.random() * 256, Math.random() * 256, s, s);
+  }
+  ctx.globalAlpha = 0.05;
+  ctx.fillStyle = "#000";
+  for (let i = 0; i < 300; i++) {
+    const s = 2 + Math.random() * 4;
+    ctx.fillRect(Math.random() * 256, Math.random() * 256, s, s);
+  }
+  const tex = new THREE.CanvasTexture(c);
+  tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
+  tex.repeat.set(repeat, repeat);
+  return tex;
+}
+
+function makeGlowTexture(){
+  const c = document.createElement("canvas");
+  c.width = c.height = 128;
+  const ctx = c.getContext("2d");
+  const g = ctx.createRadialGradient(64, 64, 4, 64, 64, 62);
+  g.addColorStop(0, "rgba(255,240,210,1)");
+  g.addColorStop(0.35, "rgba(255,180,100,.55)");
+  g.addColorStop(1, "rgba(255,140,60,0)");
+  ctx.fillStyle = g; ctx.fillRect(0, 0, 128, 128);
+  return new THREE.CanvasTexture(c);
 }

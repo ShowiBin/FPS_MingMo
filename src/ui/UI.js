@@ -16,7 +16,7 @@ export class HUD {
       killfeed: $("killfeed"), hitmark: $("hitmark"), damage: $("damage"),
       smokeFx: $("smoke-fx"), prompt: $("prompt"), promptTxt: $("promptTxt"),
       plant: $("plant"), plantBar: $("plantBar"), plantLbl: $("plantLbl"),
-      crosshair: $("crosshair"), mini: $("mini"), banner: $("banner"),
+      crosshair: $("crosshair"), mini: $("mini"), banner: $("banner"), ring: $("reloadring"),
     };
     this.mctx = this.el.mini.getContext("2d");
     this._witTimer = null;
@@ -34,10 +34,11 @@ export class HUD {
   refreshScorebar() {
     const g = this.game;
     const me = FACTIONS[g.factionChoice], op = FACTIONS[g.sides.atk === g.factionChoice ? g.sides.def : g.sides.atk];
-    this.el.sideAtk.innerHTML = `<span class="banner" style="color:${me.color};font-size:20px;font-weight:900">${me.banner}</span> ${me.name} <b>${g.scoreMe}</b>`;
-    this.el.sideDef.innerHTML = `<b>${g.scoreEnemy}</b> ${op.name} <span class="banner" style="color:${op.color};font-size:20px;font-weight:900">${op.banner}</span>`;
+    this.el.sideAtk.innerHTML = `<span class="banner" style="color:${me.color};font-size:20px;font-weight:900">${me.banner}</span> ${me.name} <b>${g.scoreMe}</b> <span class="alv" id="alvMe"></span>`;
+    this.el.sideDef.innerHTML = `<span class="alv" id="alvOp"></span> <b>${g.scoreEnemy}</b> ${op.name} <span class="banner" style="color:${op.color};font-size:20px;font-weight:900">${op.banner}</span>`;
     this.el.roundTxt.textContent = `第 ${g.round} 回合 · ${g.myAttacker ? "攻" : "守"}`;
     this.el.mtRole.textContent = me.name + (g.myAttacker ? " · 进攻" : " · 防守");
+    this._alvCache = "";
   }
 
   // ---- 历史见证 ----
@@ -73,8 +74,9 @@ export class HUD {
     setTimeout(() => div.remove(), 5000);
   }
 
-  hitmark(on) {
+  hitmark(on, head = false) {
     if (!on) return;
+    this.el.hitmark.classList.toggle("head", head);
     this.el.hitmark.classList.add("on");
     clearTimeout(this._hmT);
     this._hmT = setTimeout(() => this.el.hitmark.classList.remove("on"), 140);
@@ -165,6 +167,32 @@ export class HUD {
       const spd = 1 + (p.moving ? 0.9 : 0) + p._recoil * 5 + (p.aiming ? -0.35 : 0);
       this.el.crosshair.style.setProperty("--spd", Math.max(0.5, spd).toFixed(2));
     } else this.el.crosshair.style.setProperty("--spd", 1);
+
+    // 装填环
+    const ring = this.el.ring;
+    if (ring) {
+      if (w && w.kind === "gun" && w.reloading) {
+        ring.classList.add("on");
+        ring.firstElementChild.style.strokeDashoffset = (119.4 * (1 - w.reloadProgress())).toFixed(1);
+      } else ring.classList.remove("on");
+    }
+
+    // 残血心跳
+    const low = p.alive && p.hp <= 30;
+    document.getElementById("vitals").classList.toggle("lowhp", low);
+    this._hbT = (this._hbT || 0) - 1 / 60;
+    if (low && this._hbT <= 0) { game.sfx.heartbeat(); this._hbT = 0.95; }
+
+    // 存活数
+    const myN = (p.alive ? 1 : 0) + game.combatants.filter(c => c.alive && c.friendly).length;
+    const opN = game.combatants.filter(c => c.alive && !c.friendly).length;
+    const key = `${myN}/${opN}`;
+    if (key !== this._alvCache) {
+      this._alvCache = key;
+      const a = document.getElementById("alvMe"), b = document.getElementById("alvOp");
+      if (a) a.textContent = `存 ${myN}`;
+      if (b) b.textContent = `存 ${opN}`;
+    }
 
     // 安放进度
     if (this._planting) {

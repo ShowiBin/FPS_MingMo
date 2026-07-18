@@ -136,6 +136,9 @@ export class Sfx {
     this._noise(0.2, 900, 0.2, { at: 0.56, sweepTo: 300 });
   }
   click() { this._tone(880, 0.045, 0.14, { type: "square" }); }
+  headshot() { this._tone(1560, 0.22, 0.25, { type: "sine", slide: 500 }); this._tone(2200, 0.14, 0.12, { at: 0.03 }); }
+  streak(n = 2) { const b = 500 + n * 90; this._tone(b, 0.16, 0.3, { type: "triangle", slide: 120 }); this._tone(b * 1.5, 0.2, 0.2, { type: "sine", at: 0.09 }); }
+  heartbeat() { this._tone(52, 0.14, 0.5, { type: "sine", slide: -14 }); this._tone(48, 0.12, 0.4, { type: "sine", slide: -12, at: 0.2 }); }
 
   // ---- 环境：风 + 远处炮声 ----
   startAmbient() {

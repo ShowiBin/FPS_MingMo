@@ -73,6 +73,60 @@ export class Effects {
     this.shake(1.6);
   }
 
+  // 弹道曳光
+  tracer(from, to, color = 0xffd9a0) {
+    const dir = to.clone().sub(from);
+    const len = dir.length();
+    if (len < 0.5) return;
+    const m = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.008, 0.008, len, 4, 1, true),
+      new THREE.MeshBasicMaterial({ color, transparent: true, opacity: .8, blending: THREE.AdditiveBlending, depthWrite: false })
+    );
+    m.position.copy(from).addScaledVector(dir, 0.5);
+    m.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), dir.normalize());
+    this.scene.add(m);
+    this.parts.push({ sp: m, age: 0, ttl: 0.09 });
+  }
+
+  // 墙面弹着（尘土 + 火星）
+  impact(point) {
+    for (let i = 0; i < 5; i++) {
+      const sp = new THREE.Sprite(new THREE.SpriteMaterial({
+        map: this.dotTex, transparent: true, opacity: .7, depthWrite: false,
+        color: i < 2 ? 0xffc060 : 0x8a7a62,
+      }));
+      sp.position.copy(point);
+      const s = 0.06 + Math.random() * 0.08;
+      sp.scale.set(s, s, 1);
+      this.scene.add(sp);
+      this.parts.push({
+        sp, age: 0, ttl: 0.3 + Math.random() * 0.2,
+        vel: new THREE.Vector3((Math.random() - .5) * 2, Math.random() * 1.6, (Math.random() - .5) * 2),
+        grav: true,
+      });
+    }
+  }
+
+  // 飘字伤害数字
+  dmgNumber(point, dmg, head = false) {
+    const c = document.createElement("canvas");
+    c.width = 128; c.height = 64;
+    const ctx = c.getContext("2d");
+    ctx.font = `bold ${head ? 44 : 34}px 'Segoe UI',monospace`;
+    ctx.textAlign = "center"; ctx.textBaseline = "middle";
+    ctx.shadowColor = "#000"; ctx.shadowBlur = 5;
+    ctx.fillStyle = head ? "#ff4433" : "#ffd9a0";
+    ctx.fillText(head ? `${Math.round(dmg)}!` : `${Math.round(dmg)}`, 64, 34);
+    const tex = new THREE.CanvasTexture(c);
+    const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, transparent: true, depthWrite: false, depthTest: false }));
+    sp.position.copy(point);
+    sp.position.y += 0.35;
+    const s = head ? 0.85 : 0.6;
+    sp.scale.set(s * 2, s, 1);
+    this.scene.add(sp);
+    this.parts.push({ sp, age: 0, ttl: 0.75, vel: new THREE.Vector3((Math.random() - .5) * .4, 1.4, 0), num: true });
+  }
+
   shake(a) { this.shakeAmt = Math.min(1.8, this.shakeAmt + a); }
 
   // Game 每帧取震屏量（自动衰减）

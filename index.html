@@ -242,6 +242,13 @@
   #crosshair .bot{transform:translateY(calc(4px * var(--spd,1)));}
   #crosshair .lft{transform:translateX(calc(-4px * var(--spd,1)));}
   #crosshair .rgt{transform:translateX(calc(4px * var(--spd,1)));}
+  #reloadring{position:absolute;top:50%;left:50%;width:46px;height:46px;transform:translate(-50%,-50%);opacity:0;transition:opacity .15s;}
+  #reloadring.on{opacity:1;}
+  #reloadring circle{filter:drop-shadow(0 0 3px rgba(220,170,80,.8));}
+  #hitmark.head svg path{fill:#ff4433;}
+  #vitals.lowhp .hp .fill{animation:hpPulse .9s ease-in-out infinite;}
+  @keyframes hpPulse{0%,100%{filter:brightness(1);}50%{filter:brightness(1.8);}}
+  #scorebar .alv{font-size:10px;color:rgba(220,170,80,.7);margin:0 4px;}
 
   /* 面板描金角 */
   #vitals,#weapon,#minimap,#scorebar .side,#myteam{position:relative;}
@@ -337,7 +344,7 @@
 
   <!-- HUD -->
   <div id="hud" class="hidden">
-    <div id="crosshair"><span class="ar top"></span><span class="ar bot"></span><span class="ar lft"></span><span class="ar rgt"></span></div>
+    <div id="crosshair"><span class="ar top"></span><span class="ar bot"></span><span class="ar lft"></span><span class="ar rgt"></span><svg id="reloadring" viewBox="0 0 46 46"><circle cx="23" cy="23" r="19" fill="none" stroke="rgba(220,170,80,.95)" stroke-width="2.5" stroke-linecap="round" stroke-dasharray="119.4" stroke-dashoffset="119.4" transform="rotate(-90 23 23)"/></svg></div>
 
     <div id="myteam"><div class="banner" id="mtBanner"></div><div class="role" id="mtRole"></div></div>
 
